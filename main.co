@@ -1,0 +1,121 @@
+##############
+# requirements
+http = require \http
+fs = require \fs
+path = require \path
+
+constructor = require './constructor'
+
+################
+# configurations
+config = JSON.parse fs.readFileSync 'config', 'utf-8'
+constructor.setConfiguration config
+
+PORT = config.port
+HTDOCS = config.htdocs
+
+##############
+## http-server
+server = http.createServer (request, response) ->
+  console.log "request type '#{request.method}' from #{request.connection.remoteAddress}: '#{request.url}'"
+  
+  url = _url request.url
+  
+  # return nothing, when the normalized url contains '..'
+  if (url.file.search /\.\./g) is not -1
+    console.log "invalid request type '#{request.method}' from #{request.connection.remoteAddress}, url contains '..': '#{url.file}'"
+    return
+  
+  # load the redirect page, when no page is given
+  if url.file is '/' then
+    console.log "load redirect file for request from #{request.connection.remoteAddress}: '#{request.url}'"
+    fs.readFile './redirect.html', (error, content) ->
+      if not error
+        response.writeHead 200, 'Content-Type': 'text/html'
+        response.end content, 'utf-8'
+    return
+  
+  # handle POST
+  if request.method is 'POST' then return
+  
+  # handle GET
+  filePath = HTDOCS + url.file
+  
+  extname = path.extname filePath
+  contentType = 'text/html'
+  switch extname
+    case '.txt' then contentType = 'text/plain'
+    case '.js' then contentType = 'text/javascript'
+    case '.css' then contentType = 'text/css'
+  
+  path.exists filePath, (exists) ->
+    if exists
+      fs.readFile filePath, (error, content) ->
+        if error
+          console.log "505 could not read file '#{filePath}'\n  #{error}"
+          response.writeHead 500
+          response.end!
+        else
+          console.log "sending #{content.length} characters from '#{filePath}'"
+          response.writeHead 200, 'Content-Type': contentType
+          response.end content, 'utf-8'
+    else
+      console.log "404 file not found: '#{filePath}'"
+      response.writeHead 404
+      response.end!
+server.listen PORT, '127.0.0.1'
+console.log "Server running at http://127.0.0.1:#{PORT}/\n"
+
+# Parse an URL into filenames, hash, options, extname, ...
+_url = (input) ->
+  file_end = input.search /[#\?]/
+  if file_end is -1 then file_end = input.length
+  file = input.substr 0, file_end
+  file = path.normalize file
+  
+  filename = path.basename file
+  extname = path.extname file
+  basename = path.basename file, extname
+  
+  rest = input.substr file_end
+  option_start = rest.search /\?/
+  if option_start is not -1
+    if rest.length is not 0
+      if rest[0] is '#'
+        hash = rest.substr 1, option_start
+        rest = rest.substr option_start
+    options = _parseOptions rest.substr 1 # del ? in the beginning
+  else
+    if rest.length is not 0
+      if rest[0] is '#'
+        hash = rest.substr 1
+    options = [] # no options
+  
+  return
+    'url': input
+    'file': file
+    'filename': filename
+    'basename': basename
+    'extname': extname
+    'hash': hash
+    'options': options
+
+# parse the options of an url, splitted by &-chars
+_parseOptions = (input) ->
+  ret = []
+  options = input.split '&'
+  for option of options
+    endOfFirstPart = option.search /\=/
+    if endOfFirstPart is -1 then
+      opt = 'name' : option
+    else
+      opt = {
+        'name': option.substr 0, endOfFirstPart
+        'value': option.substr endOfFirstPart+1
+      }
+    
+    ret.push opt
+  
+  return ret
+
+

@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <title>?</title>
+    
+    <!-- meta -->
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta http-equiv="expires" content="0" />
+    
+    <!-- css -->
+    <link rel="stylesheet" type="text/css" href="style/layout.css" />
+    <link rel="stylesheet" type="text/css" href="style/style.css" />
+    <!-- script -->
+    <script type="text/javascript" src="scripts/jquery-1.7.1.min.js"></script>
+    <script type="text/javascript">
+      $(document).ready(function() {
+        ///* hide NoJS-warning */
+        //$("#NoJSWarning")[0].style.visibility = 'hidden';
+        
+        //$('#main').html("Loading ...");
+        
+        /*
+        page = window.location.search;
+        if(page == undefined) page = 'main';
+        else page = page.substr(1, page.length-1);
+        $('#main').html('Loading "'+page+'"');
+        
+        
+        // load main page 
+        var jqxhr = $.get("ajax/"+page, function(data) {
+          $('#main').html("<tt>"+data+"</tt>");
+          var lexed = lex(data);
+          var compiled = compile(lexed);
+          $('#main').html(compiled);
+        })
+        //.success(function() { alert("success"); })
+        .error(function() {
+          $('#main').html("An error occurred while loading '"+page+"'.");
+        })
+        //.complete(function() { alert("complete"); })
+        ;*/
+      });
+    </script>
+  </head>
+  <body>
+    <div class="background">
+      <div class="head">
+        <h1>?</h1>
+      </div>
+      <div class="main" id="main">
+        
+        <form action='?' method='POST' accept-charset='utf-8'>
+          <textarea name='input' cols='80' rows = '25'></textarea>
+          <input type='submit' value='Fertig'>
+        </form>
+        
+        <!-- Dieser Inhalt wird ueberladen, wenn JS angeschaltet ist. 
+        <p style="color:RED; font-weight:bold">No Script, No Content!</p>
+        <p>Der Inhalt wird dynamisch nachgeladen und das soll hier über JavaScript laufen.<p>-->
+      </div>
+    </div>
+  </body>
+</html>

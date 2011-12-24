@@ -1,0 +1,9 @@
+{
+  "port": "1337",
+  "htdocs": "./htdocs",
+  
+  "couchdb" : {
+    "user": "admin",
+    "passphrase": "007"
+  }
+}

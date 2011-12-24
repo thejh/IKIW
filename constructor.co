@@ -1,0 +1,48 @@
+configs = null
+
+exports.setConfiguration = (configs) ->
+  @configs = configs
+
+# Construct a website with XHTML and querying CouchDB
+exports.construct = (path) ->
+  title = 'Bundestag'
+  
+  header = """
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <title>#{title}</title>
+    
+    <!-- meta -->
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta http-equiv="expires" content="0" />
+    <!-- css -->
+    <link rel="stylesheet" type="text/css" href="style/layout.css" />
+    <link rel="stylesheet" type="text/css" href="style/style.css" />
+  </head>
+  <body>\n
+           """
+  footer = """
+  </body>
+</html>
+
+           """
+  
+  content = 'asdf\n'
+  
+  return header+content+footer
+
+constructArticleBody = (doc) ->
+  header = """
+    <div class="header">
+      TODO
+      <div class="dateInfoBox">
+        created on: #{}
+        last modified on: #{}
+      </div>
+    </div>
+           """
+
+constructCategoryBody = (document) ->
+
