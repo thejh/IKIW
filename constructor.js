@@ -1,5 +1,5 @@
 (function(){
-  var configs;
+  var configs, constructArticleBody, constructCategoryBody;
   configs = null;
   exports.setConfiguration = function(configs){
     return this.configs = configs;
@@ -12,4 +12,9 @@
     content = 'asdf\n';
     return header + content + footer;
   };
+  constructArticleBody = function(doc){
+    var header;
+    return header = "<div class=\"header\">\n  TODO\n  <div class=\"dateInfoBox\">\n    created on: " + "\n    last modified on: " + "\n  </div>\n</div>";
+  };
+  constructCategoryBody = function(document){};
 }).call(this);

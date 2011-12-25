@@ -5,5 +5,10 @@
   "couchdb" : {
     "user": "admin",
     "passphrase": "007"
+  },
+  
+  "files" : {
+    "css": "./htdocs/style.css",
+    "error": "./htdocs/error.html"
   }
 }
