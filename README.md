@@ -23,8 +23,7 @@ files.error = './htdocs/error.html'
 If an error occures this page is sent with url-parameters analog to these:
 
 ```
-.../htdocs/error.html?404_Not_Found&
-./htdocs/style/style.css_not_found\n./htdocs/style/style.css_not_in_index
+.../htdocs/error.html?404_Not_Found&./htdocs/style/style.css_not_found\n./htdocs/style/style.css_not_in_index
 ```
 
 Then the title of error.html should contain &quot;404 Not Found&quot; and

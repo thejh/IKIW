@@ -9,9 +9,10 @@ exports.setConfiguration = (configuration) ->
   couchdb := "http://#{config.couchdb.host}:#{config.couchdb.port}/#{config.couchdb.dbname}/"
 
 # Construct a website with XHTML and querying CouchDB
-exports.construct = (doc_id, response) ->
+exports.construct = (doc_id, response, style) ->
   # query couchdb
   url = "#{couchdb}#{doc_id}"
+  console.log "request couchdb: #{url}"
   request url, (error, resp, body) ->
     if error
       console.log JSON.stringify(error)
@@ -22,15 +23,21 @@ exports.construct = (doc_id, response) ->
       response.end!
     else
       body = JSON.parse body
-      data = 
-        'title': body.title
-        'content': body.html
-      
-      response.writeHead 200, 'Content-Type':'text/html'
-      response.end constructStndPage data
+      if body.title
+        content = constructCategoryBox body
+        content += constructArticleBody body
+        data =
+          'title': body.title
+          'content': content
+        
+        response.writeHead 200, 'Content-Type':'text/html'
+        response.end constructStndPage data, style
+      else
+        response.writeHead 200, 'Content-Type':body.type
+        response.end body.content
 
 # data = {title:'...', content:'...'}
-constructStndPage = (data) ->
+constructStndPage = (data, style) ->
   header = """
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
@@ -43,29 +50,37 @@ constructStndPage = (data) ->
     <meta http-equiv="expires" content="0" />
     <!-- css -->
     <link rel="stylesheet" type="text/css" href="style.css" />
+    #{if style is 'plain' then '<link rel="stylesheet" type="text/css" href="layout_plain.css" />' else '<link rel="stylesheet" type="text/css" href="layout_normal.css" />'}
   </head>
-  <body>\n
+  <body>
+    <div class="background">
+
            """
   footer = """
+    </div>
   </body>
 </html>
 
            """
   
-  content = 'xD\n'
-  
   return header+data.content+footer
 
 constructArticleBody = (doc) ->
-  header = """
-    <div class="header">
-      TODO
-      <div class="dateInfoBox">
-        created on: #{}
-        last modified on: #{}
+  """
+      <div class="main">
       </div>
-    </div>
-           """
 
-constructCategoryBox = (document) ->
+  """
+
+constructCategoryBox = (doc) ->
+  """
+      <div class="header">
+        TODO
+        <div class="dateInfoBox">
+          created on: #{}
+          last modified on: #{}
+        </div>
+      </div>
+
+  """
 

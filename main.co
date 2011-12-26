@@ -1,14 +1,13 @@
 ##############
 # requirements
 http = require \http
-fs = require \fs
 path = require \path
 
 constructor = require './constructor'
 
 ################
 # configurations
-config = JSON.parse fs.readFileSync 'config', 'utf-8'
+config = JSON.parse (require \fs .readFileSync 'config', 'utf-8')
 constructor.setConfiguration config
 
 PORT = config.port
@@ -18,110 +17,28 @@ HTDOCS = config.htdocs
 ## http-server
 server = http.createServer (request, response) ->
   console.log "request type '#{request.method}' from #{request.connection.remoteAddress}: '#{request.url}'"
-  url = _url request.url
+  url = require 'url' .parse request.url, true
   
   if request.method is 'POST'
     # handle POST
     yada yada yada # TODO
   else
     # handle GET
-    
-    doc_id = url.filename
+    doc_id = url.pathname.substr 1
     if doc_id.length is 0 then doc_id = config.home
-    constructor.construct doc_id, response;
+    
+    if url.query && url.query.style && url.query.style is 'plain'
+      console.log url.query.style
+      constructor.construct doc_id, response, 'plain'
+    else
+      constructor.construct doc_id, response, 'normal'
 
 server.listen PORT, '127.0.0.1'
 console.log "Server running at http://127.0.0.1:#{PORT}/\n"
-
-# write a file to response
-_sendFile = (filePath, response) ->
-  extname = path.extname filePath
-  contentType = 'text/html'
-  switch extname
-    case '.txt' then contentType = 'text/plain'
-    case '.js' then contentType = 'text/javascript'
-    case '.css' then contentType = 'text/css'
-  
-  path.exists filePath, (exists) ->
-    if exists
-      fs.readFile filePath, (error, content) ->
-        if error
-          console.log "500: could not read file '#{filePath}'\n  #{error}"
-          if filePath is not config.files.redirect
-            description = "500: could not read file '#{filePath}'\n#{error}"
-            _sendFile "#{config.files.error}?500_Internal_Server_Error&#{_formatToOption description}"
-          else
-            response.writeHead 500
-            response.end!
-        else
-          console.log "sending #{content.length} characters from '#{filePath}'"
-          response.writeHead 200, 'Content-Type': contentType
-          response.end content, 'utf-8'
-    else
-      console.log "404 file not found: '#{filePath}'"
-      if filePath is not config.files.redirect
-        description = "404: file not found:\n#{filePath}"
-        _sendFile "#{config.files.error}?404_Not_Found&#{_formatToOption description}"
-      else
-        response.writeHead 404
-        response.end!
 
 ##############
 # utils ######
 _formatToOption = (text) ->
   text = text.replace /\ /g, '_'
   text = text.replace /\\t/g, '__'
-
-# Parse an URL into filenames, hash, options, extname, ...
-_url = (input) ->
-  file_end = input.search /[#\?]/
-  if file_end is -1 then file_end = input.length
-  file = input.substr 0, file_end
-  file = path.normalize file
-  
-  filename = path.basename file
-  extname = path.extname file
-  basename = path.basename file, extname
-  
-  rest = input.substr file_end
-  option_start = rest.search /\?/
-  if option_start is not -1
-    if rest.length is not 0
-      if rest[0] is '#'
-        hash = rest.substr 1, option_start
-        rest = rest.substr option_start
-    options = _parseOptions rest.substr 1 # del ? in the beginning
-  else
-    if rest.length is not 0
-      if rest[0] is '#'
-        hash = rest.substr 1
-    options = [] # no options
-  
-  return
-    'url': input
-    'file': file
-    'filename': filename
-    'basename': basename
-    'extname': extname
-    'hash': hash
-    'options': options
-
-# parse the options of an url, splitted by &-chars
-_parseOptions = (input) ->
-  ret = []
-  options = input.split '&'
-  for option of options
-    endOfFirstPart = option.search /\=/
-    if endOfFirstPart is -1 then
-      opt = 'name' : option
-    else
-      opt = {
-        'name': option.substr 0, endOfFirstPart
-        'value': option.substr endOfFirstPart+1
-      }
-    
-    ret.push opt
-  
-  return ret
-
 
