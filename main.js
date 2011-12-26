@@ -1,5 +1,5 @@
 (function(){
-  var http, fs, path, constructor, config, PORT, HTDOCS, server, _url, _parseOptions;
+  var http, fs, path, constructor, config, PORT, HTDOCS, server, _sendFile, _formatToOption, _url, _parseOptions;
   http = require('http');
   fs = require('fs');
   path = require('path');
@@ -9,29 +9,23 @@
   PORT = config.port;
   HTDOCS = config.htdocs;
   server = http.createServer(function(request, response){
-    var url, filePath, extname, contentType;
+    var url, doc_id;
     console.log("request type '" + request.method + "' from " + request.connection.remoteAddress + ": '" + request.url + "'");
     url = _url(request.url);
-    if (url.file.search(/\.\./g) !== -1) {
-      console.log("invalid request type '" + request.method + "' from " + request.connection.remoteAddress + ", url contains '..': '" + url.file + "'");
-      return;
-    }
-    if (url.file === '/') {
-      console.log("load redirect file for request from " + request.connection.remoteAddress + ": '" + request.url + "'");
-      fs.readFile('./redirect.html', function(error, content){
-        if (!error) {
-          response.writeHead(200, {
-            'Content-Type': 'text/html'
-          });
-          return response.end(content, 'utf-8');
-        }
-      });
-      return;
-    }
     if (request.method === 'POST') {
-      return;
+      return yada(yada(yada));
+    } else {
+      doc_id = url.filename;
+      if (doc_id.length === 0) {
+        doc_id = config.home;
+      }
+      return constructor.construct(doc_id, response);
     }
-    filePath = HTDOCS + url.file;
+  });
+  server.listen(PORT, '127.0.0.1');
+  console.log("Server running at http://127.0.0.1:" + PORT + "/\n");
+  _sendFile = function(filePath, response){
+    var extname, contentType;
     extname = path.extname(filePath);
     contentType = 'text/html';
     switch (extname) {
@@ -45,12 +39,19 @@
       contentType = 'text/css';
     }
     return path.exists(filePath, function(exists){
+      var description;
       if (exists) {
         return fs.readFile(filePath, function(error, content){
+          var description;
           if (error) {
-            console.log("505 could not read file '" + filePath + "'\n  " + error);
-            response.writeHead(500);
-            return response.end();
+            console.log("500: could not read file '" + filePath + "'\n  " + error);
+            if (filePath !== config.files.redirect) {
+              description = "500: could not read file '" + filePath + "'\n" + error;
+              return _sendFile(config.files.error + "?500_Internal_Server_Error&" + _formatToOption(description));
+            } else {
+              response.writeHead(500);
+              return response.end();
+            }
           } else {
             console.log("sending " + content.length + " characters from '" + filePath + "'");
             response.writeHead(200, {
@@ -61,13 +62,20 @@
         });
       } else {
         console.log("404 file not found: '" + filePath + "'");
-        response.writeHead(404);
-        return response.end();
+        if (filePath !== config.files.redirect) {
+          description = "404: file not found:\n" + filePath;
+          return _sendFile(config.files.error + "?404_Not_Found&" + _formatToOption(description));
+        } else {
+          response.writeHead(404);
+          return response.end();
+        }
       }
     });
-  });
-  server.listen(PORT, '127.0.0.1');
-  console.log("Server running at http://127.0.0.1:" + PORT + "/\n");
+  };
+  _formatToOption = function(text){
+    text = text.replace(/\ /g, '_');
+    return text = text.replace(/\\t/g, '__');
+  };
   _url = function(input){
     var file_end, file, filename, extname, basename, rest, option_start, hash, options;
     file_end = input.search(/[#\?]/);

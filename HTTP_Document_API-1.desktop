@@ -1,0 +1,12 @@
+#!/usr/bin/env xdg-open
+
+[Desktop Entry]
+Version=1.0
+Name=http://wiki.apache.org/couchdb/HTTP_Document_API
+Comment=Adresse öffnen: http://wiki.apache.org/couchdb/HTTP_Document_API
+Icon=applications-internet
+Name[de_DE]=HTTP Document API
+Comment[de_DE]=Adresse öffnen: http://wiki.apache.org/couchdb/HTTP_Document_API
+Icon[de_DE]=applications-internet
+URL=http://wiki.apache.org/couchdb/HTTP_Document_API
+Type=Link

@@ -1,25 +1,48 @@
-configs = null
+request = require 'request'
+path = require 'path'
 
-exports.setConfiguration = (configs) ->
-  @configs = configs
+config = null
+couchdb = null
+
+exports.setConfiguration = (configuration) ->
+  config := configuration
+  couchdb := "http://#{config.couchdb.host}:#{config.couchdb.port}/#{config.couchdb.dbname}/"
 
 # Construct a website with XHTML and querying CouchDB
-exports.construct = (path) ->
-  title = 'Bundestag'
-  
+exports.construct = (doc_id, response) ->
+  # query couchdb
+  url = "#{couchdb}#{doc_id}"
+  request url, (error, resp, body) ->
+    if error
+      console.log JSON.stringify(error)
+      response.writeHead 500
+      response.end!
+    else if resp.statusCode != 200
+      response.writeHead resp.statusCode
+      response.end!
+    else
+      body = JSON.parse body
+      data = 
+        'title': body.title
+        'content': body.html
+      
+      response.writeHead 200, 'Content-Type':'text/html'
+      response.end constructStndPage data
+
+# data = {title:'...', content:'...'}
+constructStndPage = (data) ->
   header = """
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml">
   <head>
-    <title>#{title}</title>
+    <title>#{data.title}</title>
     
     <!-- meta -->
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     <meta http-equiv="expires" content="0" />
     <!-- css -->
-    <link rel="stylesheet" type="text/css" href="style/layout.css" />
-    <link rel="stylesheet" type="text/css" href="style/style.css" />
+    <link rel="stylesheet" type="text/css" href="style.css" />
   </head>
   <body>\n
            """
@@ -29,9 +52,9 @@ exports.construct = (path) ->
 
            """
   
-  content = 'asdf\n'
+  content = 'xD\n'
   
-  return header+content+footer
+  return header+data.content+footer
 
 constructArticleBody = (doc) ->
   header = """
@@ -44,5 +67,5 @@ constructArticleBody = (doc) ->
     </div>
            """
 
-constructCategoryBody = (document) ->
+constructCategoryBox = (document) ->
 

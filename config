@@ -2,13 +2,20 @@
   "port": "1337",
   "htdocs": "./htdocs",
   
+  "home": "home",
+  
   "couchdb" : {
+    "host": "127.0.0.1",
+    "port": "5984",
+    "dbname": "ikiw",
+    
     "user": "admin",
     "passphrase": "007"
   },
   
   "files" : {
-    "css": "./htdocs/style.css",
-    "error": "./htdocs/error.html"
+    "error": "./htdocs/error.html",
+    "redirect": "./htdocs/redirect.html",
+    "css": "./htdocs/style.css"
   }
 }
