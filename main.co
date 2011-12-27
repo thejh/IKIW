@@ -16,10 +16,17 @@ HTDOCS = config.htdocs
 ##############
 ## http-server
 server = http.createServer (request, response) ->
-  console.log "request type '#{request.method}' from #{request.connection.remoteAddress}: '#{request.url}'"
+  console.log "rec: request type '#{request.method}' from #{request.connection.remoteAddress}: '#{request.url}'"
   url = require 'url' .parse request.url, true
   
-  console.log JSON.stringify url
+  if url.query.action && url.query.action is 'edit' then edit = true
+  else edit = false
+  
+  doc_id = url.pathname.substr 1
+  if doc_id.length is 0 then doc_id = config.home
+  
+  style = 'normal'
+  if url.query && url.query.style && url.query.style is 'plain' then style = 'plain'
   
   if request.method is 'POST'
     # handle POST
@@ -32,17 +39,10 @@ server = http.createServer (request, response) ->
     
     request.on 'end', ->
       post := require 'querystring' .parse post
-      
-      # TODO use post
-  else
-    # handle GET
-    doc_id = url.pathname.substr 1
-    if doc_id.length is 0 then doc_id = config.home
-    if url.query && url.query.style && url.query.style is 'plain'
-      console.log url.query.style
-      constructor.construct doc_id, response, 'plain'
-    else
-      constructor.construct doc_id, response, 'normal'
+      if post.input
+        constructor.compile doc_id, post.input
+  
+  constructor.construct doc_id, response, edit, style
 
 server.listen PORT, '127.0.0.1'
 console.log "Server running at http://127.0.0.1:#{PORT}/\n"

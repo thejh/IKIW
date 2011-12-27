@@ -9,32 +9,52 @@ exports.setConfiguration = (configuration) ->
   couchdb := "http://#{config.couchdb.host}:#{config.couchdb.port}/#{config.couchdb.dbname}/"
 
 # Construct a website with XHTML and querying CouchDB
-exports.construct = (doc_id, response, style) ->
+exports.construct = (doc_id, response, edit, style) ->
   # query couchdb
   url = "#{couchdb}#{doc_id}"
-  console.log "request couchdb: #{url}"
+  console.log "send: request couchdb: #{url}"
   request url, (error, resp, body) ->
     if error
       console.log JSON.stringify(error)
       response.writeHead 500
       response.end!
-    else if resp.statusCode != 200
+    else if resp.statusCode is not 200
       response.writeHead resp.statusCode
       response.end!
-    else
+    else # doc found, normal article
       body = JSON.parse body
       if body.title
         content = constructCategoryBox body
-        content += constructArticleBody body
+        if edit then content += constructArticleBodyEdit body
+        else content += constructArticleBody body
         data =
           'title': body.title
           'content': content
         
         response.writeHead 200, 'Content-Type':'text/html'
         response.end constructStndPage data, style
-      else
-        response.writeHead 200, 'Content-Type':body.type
-        response.end body.content
+      else # doc found, but no article
+        if body.content
+          response.writeHead 200, 'Content-Type':body.type
+          response.end body.content
+        else if Object.keys body._attachments .length > 0
+          # request an / the attachement
+          url = "#{couchdb}#{doc_id}/#{(Object.keys body._attachments)[0]}"
+          console.log "send: request couchdb for attachement: #{url}"
+          request url, (error, resp, body) ->
+            if error
+              request.writeHead 500
+              request.end!
+            else if resp.statusCode is not 200
+              response.writeHead resp.statusCode
+              response.end!
+            else
+              console.log resp.body
+              response.writeHead 200, body.type
+              response.end resp.body
+        else
+          response.writeHead 404
+          response.end!
 
 # data = {title:'...', content:'...'}
 constructStndPage = (data, style) ->
@@ -67,21 +87,40 @@ constructStndPage = (data, style) ->
 
 constructArticleBody = (doc) ->
   """
-      <div class="main">
+      <div class="content">
 #{doc.html}
+      </div>
+
+  """
+
+constructArticleBodyEdit = (doc) ->
+  """
+      <div class="content">
+        <form action='?' method='POST' accept-charset='utf-8'>
+          <textarea name='input' cols='80' rows = '25'>#{doc.markup}</textarea>
+          <input type='submit' value='Fertig'>
+        </form>
       </div>
 
   """
 
 constructCategoryBox = (doc) ->
   """
-      <div class="header">
+      <div class="categories">
         TODO
+        
         <div class="dateInfoBox">
-          created on: #{}
+          <a href="./#{doc._id}?action=edit">EDIT</a><br>
+          <br>
+          created on: #{}<br>
           last modified on: #{}
         </div>
       </div>
 
   """
+
+exports.compile = (doc_id, newMarkup) ->
+  console.log "compile '#{doc_id}'"
+  #TODO
+
 

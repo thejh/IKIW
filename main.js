@@ -8,10 +8,22 @@
   PORT = config.port;
   HTDOCS = config.htdocs;
   server = http.createServer(function(request, response){
-    var url, post, doc_id;
-    console.log("request type '" + request.method + "' from " + request.connection.remoteAddress + ": '" + request.url + "'");
+    var url, edit, doc_id, style, post;
+    console.log("rec: request type '" + request.method + "' from " + request.connection.remoteAddress + ": '" + request.url + "'");
     url = require('url').parse(request.url, true);
-    console.log(JSON.stringify(url));
+    if (url.query.action && url.query.action === 'edit') {
+      edit = true;
+    } else {
+      edit = false;
+    }
+    doc_id = url.pathname.substr(1);
+    if (doc_id.length === 0) {
+      doc_id = config.home;
+    }
+    style = 'normal';
+    if (url.query && url.query.style && url.query.style === 'plain') {
+      style = 'plain';
+    }
     if (request.method === 'POST') {
       request.setEncoding('utf8');
       post = '';
@@ -20,22 +32,14 @@
           return post += data;
         }
       });
-      return request.on('end', function(){
+      request.on('end', function(){
         post = require('querystring').parse(post);
-        return console.log(JSON.stringify(post));
+        if (post.input) {
+          return constructor.compile(doc_id, post.input);
+        }
       });
-    } else {
-      doc_id = url.pathname.substr(1);
-      if (doc_id.length === 0) {
-        doc_id = config.home;
-      }
-      if (url.query && url.query.style && url.query.style === 'plain') {
-        console.log(url.query.style);
-        return constructor.construct(doc_id, response, 'plain');
-      } else {
-        return constructor.construct(doc_id, response, 'normal');
-      }
     }
+    return constructor.construct(doc_id, response, edit, style);
   });
   server.listen(PORT, '127.0.0.1');
   console.log("Server running at http://127.0.0.1:" + PORT + "/\n");
