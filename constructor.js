@@ -50,7 +50,7 @@
     return header + data.content + footer;
   };
   constructArticleBody = function(doc){
-    return "<div class=\"main\">\n</div>\n";
+    return "      <div class=\"main\">\n" + doc.html + "\n      </div>\n";
   };
   constructCategoryBox = function(doc){
     return "<div class=\"header\">\n  TODO\n  <div class=\"dateInfoBox\">\n    created on: " + "\n    last modified on: " + "\n  </div>\n</div>\n";

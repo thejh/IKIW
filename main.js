@@ -3,16 +3,27 @@
   http = require('http');
   path = require('path');
   constructor = require('./constructor');
-  config = JSON.parse(require('fs').readFileSync('config', 'utf-8'));
+  config = JSON.parse(require('fs').readFileSync('config', 'utf8'));
   constructor.setConfiguration(config);
   PORT = config.port;
   HTDOCS = config.htdocs;
   server = http.createServer(function(request, response){
-    var url, doc_id;
+    var url, post, doc_id;
     console.log("request type '" + request.method + "' from " + request.connection.remoteAddress + ": '" + request.url + "'");
     url = require('url').parse(request.url, true);
+    console.log(JSON.stringify(url));
     if (request.method === 'POST') {
-      return yada(yada(yada));
+      request.setEncoding('utf8');
+      post = '';
+      request.on('data', function(data){
+        if (post.length + data.length <= config.maxPostSize) {
+          return post += data;
+        }
+      });
+      return request.on('end', function(){
+        post = require('querystring').parse(post);
+        return console.log(JSON.stringify(post));
+      });
     } else {
       doc_id = url.pathname.substr(1);
       if (doc_id.length === 0) {

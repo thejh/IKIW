@@ -3,6 +3,7 @@
   "htdocs": "./htdocs",
   
   "home": "home",
+  "maxPostSize": "1000000",
   
   "couchdb" : {
     "host": "127.0.0.1",
@@ -11,11 +12,5 @@
     
     "user": "admin",
     "passphrase": "007"
-  },
-  
-  "files" : {
-    "error": "./htdocs/error.html",
-    "redirect": "./htdocs/redirect.html",
-    "css": "./htdocs/style.css"
   }
 }
