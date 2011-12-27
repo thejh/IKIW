@@ -1,15 +1,11 @@
 request = require 'request'
-path = require 'path'
 
 config = null
 couchdb = null
 
-exports.setConfiguration = (configuration) ->
-  config := configuration
-  couchdb := "http://#{config.couchdb.host}:#{config.couchdb.port}/#{config.couchdb.dbname}/"
-
 # Construct a website with XHTML and querying CouchDB
-exports.construct = (doc_id, response, edit, style) ->
+# extra = {edit: bool, style: 'normal'/'plain', error: 'include error box', info: 'include info box'}
+construct = (doc_id, response, extra) ->
   # query couchdb
   url = "#{couchdb}#{doc_id}"
   console.log "send: request couchdb: #{url}"
@@ -25,14 +21,14 @@ exports.construct = (doc_id, response, edit, style) ->
       body = JSON.parse body
       if body.title
         content = constructCategoryBox body
-        if edit then content += constructArticleBodyEdit body
+        if extra.edit then content += constructArticleBodyEdit body
         else content += constructArticleBody body
         data =
           'title': body.title
           'content': content
         
         response.writeHead 200, 'Content-Type':'text/html'
-        response.end constructStndPage data, style
+        response.end constructStndPage data, extra.style
       else # doc found, but no article
         if body.content
           response.writeHead 200, 'Content-Type':body.type
@@ -49,7 +45,7 @@ exports.construct = (doc_id, response, edit, style) ->
               response.writeHead resp.statusCode
               response.end!
             else
-              console.log resp.body
+              # TODO weird behaviour
               response.writeHead 200, body.type
               response.end resp.body
         else
@@ -110,17 +106,15 @@ constructCategoryBox = (doc) ->
         TODO
         
         <div class="dateInfoBox">
-          <a href="./#{doc._id}?action=edit">EDIT</a><br>
-          <br>
-          created on: #{}<br>
-          last modified on: #{}
+          <a href="./#{doc._id}?action=edit">EDIT</a>
         </div>
       </div>
 
   """
 
-exports.compile = (doc_id, newMarkup) ->
-  console.log "compile '#{doc_id}'"
-  #TODO
+module.exports = construct
 
+construct.setConfiguration = (configuration) ->
+  config := configuration
+  couchdb := "http://#{config.couchdb.host}:#{config.couchdb.port}/#{config.couchdb.dbname}/"
 

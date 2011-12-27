@@ -4,6 +4,7 @@ http = require \http
 path = require \path
 
 constructor = require './constructor'
+compiler = require './compiler'
 
 ################
 # configurations
@@ -19,14 +20,18 @@ server = http.createServer (request, response) ->
   console.log "rec: request type '#{request.method}' from #{request.connection.remoteAddress}: '#{request.url}'"
   url = require 'url' .parse request.url, true
   
-  if url.query.action && url.query.action is 'edit' then edit = true
-  else edit = false
+  edit = false
+  if url.query and url.query.action and url.query.action is \edit then edit = true
+  
+  style = \normal
+  if url.query and url.query.style and url.query.style is \plain then style = \plain
   
   doc_id = url.pathname.substr 1
   if doc_id.length is 0 then doc_id = config.home
   
-  style = 'normal'
-  if url.query && url.query.style && url.query.style is 'plain' then style = 'plain'
+  extra =
+    \style : style
+    \edit : edit
   
   if request.method is 'POST'
     # handle POST
@@ -34,22 +39,25 @@ server = http.createServer (request, response) ->
     post = ''
     
     request.on 'data', (data) ->
-      if post.length+data.length <= config.maxPostSize
+      if post is not void and post.length+data.length <= config.maxPostSize
         post += data
+      else
+        post := void
+        response.writeHead 414 # Request-URI Too Long
+        response.end!
     
     request.on 'end', ->
+      if post is void then return # 414
       post := require 'querystring' .parse post
       if post.input
-        constructor.compile doc_id, post.input
-  
-  constructor.construct doc_id, response, edit, style
+        extra <<< compiler doc_id, post.input
+        constructor doc_id, response, extra
+      else
+        response.writeHead 400 # Bad Request
+        response.end!
+  else
+    constructor doc_id, response, extra
 
 server.listen PORT, '127.0.0.1'
 console.log "Server running at http://127.0.0.1:#{PORT}/\n"
-
-##############
-# utils ######
-_formatToOption = (text) ->
-  text = text.replace /\ /g, '_'
-  text = text.replace /\\t/g, '__'
 

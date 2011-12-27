@@ -1,0 +1,28 @@
+request = require 'request'
+
+config = null
+couchdb = null
+
+compile = (doc_id, newMarkup) ->
+  console.log "compiling '#{doc_id}'"
+  result = {}
+  
+  #TODO
+  tree = parse newMarkup
+  result.info = JSON.stringify tree
+  
+  return result
+
+parse = (input) ->
+  result = []
+  for i of input.split /\n\n/g
+    ;
+
+################################################################################
+
+module.exports = compile
+
+compile.setConfiguration = (configuration) ->
+  config := configuration
+  couchdb := "http://#{config.couchdb.host}:#{config.couchdb.port}/#{config.couchdb.dbname}/"
+

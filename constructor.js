@@ -1,14 +1,9 @@
 (function(){
-  var request, path, config, couchdb, constructStndPage, constructArticleBody, constructArticleBodyEdit, constructCategoryBox;
+  var request, config, couchdb, construct, constructStndPage, constructArticleBody, constructArticleBodyEdit, constructCategoryBox;
   request = require('request');
-  path = require('path');
   config = null;
   couchdb = null;
-  exports.setConfiguration = function(configuration){
-    config = configuration;
-    return couchdb = "http://" + config.couchdb.host + ":" + config.couchdb.port + "/" + config.couchdb.dbname + "/";
-  };
-  exports.construct = function(doc_id, response, edit, style){
+  construct = function(doc_id, response, extra){
     var url;
     url = couchdb + "" + doc_id;
     console.log("send: request couchdb: " + url);
@@ -25,7 +20,7 @@
         body = JSON.parse(body);
         if (body.title) {
           content = constructCategoryBox(body);
-          if (edit) {
+          if (extra.edit) {
             content += constructArticleBodyEdit(body);
           } else {
             content += constructArticleBody(body);
@@ -37,7 +32,7 @@
           response.writeHead(200, {
             'Content-Type': 'text/html'
           });
-          return response.end(constructStndPage(data, style));
+          return response.end(constructStndPage(data, extra.style));
         } else {
           if (body.content) {
             response.writeHead(200, {
@@ -55,7 +50,6 @@
                 response.writeHead(resp.statusCode);
                 return response.end();
               } else {
-                console.log(resp.body);
                 response.writeHead(200, body.type);
                 return response.end(resp.body);
               }
@@ -81,9 +75,11 @@
     return "<div class=\"content\">\n  <form action='?' method='POST' accept-charset='utf-8'>\n    <textarea name='input' cols='80' rows = '25'>" + doc.markup + "</textarea>\n    <input type='submit' value='Fertig'>\n  </form>\n</div>\n";
   };
   constructCategoryBox = function(doc){
-    return "<div class=\"categories\">\n  TODO\n  \n  <div class=\"dateInfoBox\">\n    <a href=\"./" + doc._id + "?action=edit\">EDIT</a><br>\n    <br>\n    created on: " + "<br>\n    last modified on: " + "\n  </div>\n</div>\n";
+    return "<div class=\"categories\">\n  TODO\n  \n  <div class=\"dateInfoBox\">\n    <a href=\"./" + doc._id + "?action=edit\">EDIT</a>\n  </div>\n</div>\n";
   };
-  exports.compile = function(doc_id, newMarkup){
-    return console.log("compile '" + doc_id + "'");
+  module.exports = construct;
+  construct.setConfiguration = function(configuration){
+    config = configuration;
+    return couchdb = "http://" + config.couchdb.host + ":" + config.couchdb.port + "/" + config.couchdb.dbname + "/";
   };
 }).call(this);

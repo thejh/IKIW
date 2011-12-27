@@ -12,5 +12,9 @@
     
     "user": "admin",
     "passphrase": "007"
+  },
+  
+  "compiler": {
+    "quotes": "german"
   }
 }
