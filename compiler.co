@@ -94,7 +94,7 @@ extractOneLiners = (tree) ->
     block = tree[blockIndex]
     remainingText = ''
     for line of block.input.split /\n/g
-      match = line.match /(^=+)|(^@)/
+      match = line.match /(^=+)|(^@)|(^\\)/
       if match # found
         match = match[0] # select first occurrence
         if match[0] is '='
@@ -104,11 +104,17 @@ extractOneLiners = (tree) ->
             \depth : match.length
             \input : line.substr match.length
           }
-        else
+        else if match[0] is '@'
           # definition for bibliography or link-shorthand
           tree.splice blockIndex, 0, {
             \type : \define
             \input : line
+          }
+        else
+          # definition for bibliography or link-shorthand
+          tree.splice blockIndex, 0, {
+            \type : \command
+            \input : line.substr 1
           }
         
         blockIndex ++

@@ -101,7 +101,7 @@
       remainingText = '';
       for (_i = 0, _len = (_ref = block.input.split(/\n/g)).length; _i < _len; ++_i) {
         line = _ref[_i];
-        match = line.match(/(^=+)|(^@)/);
+        match = line.match(/(^=+)|(^@)|(^\\)/);
         if (match) {
           match = match[0];
           if (match[0] === '=') {
@@ -110,10 +110,15 @@
               'depth': match.length,
               'input': line.substr(match.length)
             });
-          } else {
+          } else if (match[0] === '@') {
             tree.splice(blockIndex, 0, {
               'type': 'define',
               'input': line
+            });
+          } else {
+            tree.splice(blockIndex, 0, {
+              'type': 'command',
+              'input': line.substr(1)
             });
           }
           blockIndex++;
