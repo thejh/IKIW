@@ -1,22 +1,23 @@
 (function(){
-  var request, config, couchdb, compile, parseBlocks;
+  var request, config, couchdb, compile, parseBlocks, extractOneLiners, deleteEmptyBlocks, _delChars;
   request = require('request');
   config = null;
   couchdb = null;
   compile = function(doc_id, newMarkup){
-    var result, blocks, error;
+    var result, tree, error;
     console.log("compiling '" + doc_id + "'");
     result = {};
-    blocks = [];
+    tree = [];
     newMarkup = newMarkup.replace(/\r/g, '');
-    console.log(newMarkup);
-    error = parseBlocks(blocks, newMarkup);
+    error = parseBlocks(tree, newMarkup);
     if (error) {
       result.error = error;
-      result.info = JSON.stringify(blocks);
+      result.info = "blocks:\n\n" + JSON.stringify(tree);
       return result;
     }
-    result.info = JSON.stringify(blocks);
+    extractOneLiners(tree);
+    deleteEmptyBlocks(tree);
+    result.info = JSON.stringify(tree);
     return result;
   };
   parseBlocks = function(result, text){
@@ -32,7 +33,6 @@
             return "RegExp found and not found ?!\n" + text;
           }
           match = match[0];
-          console.log(">> " + index + ": " + JSON.stringify(match));
           mayEscaped = true;
           newType = null;
           if (match[1] === '`') {
@@ -91,8 +91,53 @@
         text = text.substr(index + 4);
         type = null;
       }
-      console.log("\n" + text + "\n####### " + type + " #######");
     }
+  };
+  extractOneLiners = function(tree){
+    var blockIndex, block, remainingText, line, match, _i, _ref, _len;
+    blockIndex = 0;
+    while (blockIndex < tree.length) {
+      block = tree[blockIndex];
+      remainingText = '';
+      for (_i = 0, _len = (_ref = block.input.split(/\n/g)).length; _i < _len; ++_i) {
+        line = _ref[_i];
+        match = line.match(/(^=+)|(^@)/);
+        if (match) {
+          match = match[0];
+          if (match[0] === '=') {
+            tree.splice(blockIndex, 0, {
+              'type': 'headline',
+              'depth': match.length,
+              'input': line.substr(match.length)
+            });
+          } else {
+            tree.splice(blockIndex, 0, {
+              'type': 'define',
+              'input': line
+            });
+          }
+          blockIndex++;
+        } else {
+          remainingText += line + '\n';
+        }
+      }
+      block.input = remainingText;
+      blockIndex++;
+    }
+  };
+  deleteEmptyBlocks = function(tree){
+    var index;
+    for (index = tree.length - 1; index >= 0; --index) {
+      if (!tree[index].input || tree[index].input.length === 0) {
+        tree.splice(index, 1);
+      }
+    }
+  };
+  _delChars = function(text, startIndex, length){
+    var firstPart, lastPart;
+    firstPart = text.substr(0, startIndex);
+    lastPart = text.substr(startIndex + length);
+    return firstPart + lastPart;
   };
   module.exports = compile;
   compile.setConfiguration = function(configuration){

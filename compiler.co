@@ -7,17 +7,19 @@ compile = (doc_id, newMarkup) ->
   console.log "compiling '#{doc_id}'"
   
   result = {}
-  blocks = []
+  tree = []
   
   newMarkup = newMarkup.replace /\r/g, '' # delete windows chars
-  console.log newMarkup
-  error = parseBlocks blocks, newMarkup
+  error = parseBlocks tree, newMarkup
   if error
     result.error = error
-    result.info = JSON.stringify blocks
+    result.info = "blocks:\n\n#{JSON.stringify tree}"
     return result
   
-  result.info = JSON.stringify blocks
+  extractOneLiners tree
+  deleteEmptyBlocks tree
+  
+  result.info = JSON.stringify tree
   
   return result
 
@@ -37,7 +39,6 @@ parseBlocks = (result, text) ->
         if match is null then return "RegExp found and not found ?!\n#{text}"
         
         match = match[0] # select first occurrence
-        console.log ">> #{index}: #{JSON.stringify match}"
         mayEscaped = true
         newType = null
         if match[1] is '`' then newType = \code
@@ -84,9 +85,44 @@ parseBlocks = (result, text) ->
       
       text = text.substr index+4 # remaining text
       type = null
-    
-    console.log "\n#{text}\n####### #{type} #######"
   
+  return void
+
+extractOneLiners = (tree) ->
+  blockIndex = 0
+  while blockIndex < tree.length
+    block = tree[blockIndex]
+    remainingText = ''
+    for line of block.input.split /\n/g
+      match = line.match /(^=+)|(^@)/
+      if match # found
+        match = match[0] # select first occurrence
+        if match[0] is '='
+          # headline
+          tree.splice blockIndex, 0, {
+            \type : \headline
+            \depth : match.length
+            \input : line.substr match.length
+          }
+        else
+          # definition for bibliography or link-shorthand
+          tree.splice blockIndex, 0, {
+            \type : \define
+            \input : line
+          }
+        
+        blockIndex ++
+      else
+        remainingText += line+'\n'
+    
+    block.input = remainingText
+    blockIndex ++
+  return void
+
+deleteEmptyBlocks = (tree) ->
+  for index from tree.length-1 to 0 by -1
+    if not tree[index].input or tree[index].input.length is 0
+      tree.splice index, 1
   return void
 
 ################################################################################
@@ -94,6 +130,11 @@ parseBlocks = (result, text) ->
 
 ################################################################################
 # other
+
+_delChars = (text, startIndex, length) ->
+  firstPart = text.substr 0, startIndex
+  lastPart = text.substr startIndex+length
+  return firstPart+lastPart
 
 module.exports = compile
 
