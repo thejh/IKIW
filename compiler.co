@@ -3,7 +3,7 @@ request = require 'request'
 config = null
 couchdb = null
 
-compile = (doc_id, newMarkup) ->
+compile = (doc_id, newMarkup, onFinish) ->
   console.log "compiling '#{doc_id}'"
   
   result = {}
@@ -12,16 +12,22 @@ compile = (doc_id, newMarkup) ->
   newMarkup = newMarkup.replace /\r/g, '' # delete windows chars
   error = parseBlocks tree, newMarkup
   if error
-    result.error = error
-    result.info = "blocks:\n\n#{JSON.stringify tree}"
+    result.error = "ERROR while parsing blocks:\n#{error}"
+    result.info = "blocks parsed yet:\n\n#{JSON.stringify tree}"
     return result
   
-  extractOneLiners tree
-  deleteEmptyBlocks tree
+  extractOneLiners tree # extract commands, headlines and defines
+  deleteEmptyBlocks tree # delete blocks that contained only one-liners
+  
+  error = parseParagraphs tree # identify lists
+  if error
+    result.error = "ERROR while parsing paragraphs:\n#{error}"
+    result.info = "tree so far:\n\n#{JSON.stringify tree}"
+    return result
   
   result.info = JSON.stringify tree
   
-  return result
+  onFinish(result);
 
 ################################################################################
 ## parse
@@ -123,6 +129,7 @@ extractOneLiners = (tree) ->
     
     block.input = remainingText
     blockIndex ++
+  
   return void
 
 deleteEmptyBlocks = (tree) ->
@@ -131,6 +138,21 @@ deleteEmptyBlocks = (tree) ->
       tree.splice index, 1
   return void
 
+parseParagraphs = (tree) ->
+  for block of tree
+    if block.type !== \par then continue
+    
+    match = block.input.match /^\s*-[^-]/
+    if match
+      block.type = \unorderedlist
+      block.depth = match[0].length
+    
+    match = block.input.match /(^\s*#[^#])/
+    if match
+      block.type = \orderedlist
+      block.depth = match[0].length
+  
+  return void
 ################################################################################
 # create html
 

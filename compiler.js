@@ -1,9 +1,9 @@
 (function(){
-  var request, config, couchdb, compile, parseBlocks, extractOneLiners, deleteEmptyBlocks, _delChars;
+  var request, config, couchdb, compile, parseBlocks, extractOneLiners, deleteEmptyBlocks, parseParagraphs, _delChars;
   request = require('request');
   config = null;
   couchdb = null;
-  compile = function(doc_id, newMarkup){
+  compile = function(doc_id, newMarkup, onFinish){
     var result, tree, error;
     console.log("compiling '" + doc_id + "'");
     result = {};
@@ -11,14 +11,20 @@
     newMarkup = newMarkup.replace(/\r/g, '');
     error = parseBlocks(tree, newMarkup);
     if (error) {
-      result.error = error;
-      result.info = "blocks:\n\n" + JSON.stringify(tree);
+      result.error = "ERROR while parsing blocks:\n" + error;
+      result.info = "blocks parsed yet:\n\n" + JSON.stringify(tree);
       return result;
     }
     extractOneLiners(tree);
     deleteEmptyBlocks(tree);
+    error = parseParagraphs(tree);
+    if (error) {
+      result.error = "ERROR while parsing paragraphs:\n" + error;
+      result.info = "tree so far:\n\n" + JSON.stringify(tree);
+      return result;
+    }
     result.info = JSON.stringify(tree);
-    return result;
+    return onFinish(result);
   };
   parseBlocks = function(result, text){
     var type, regex, index, match, mayEscaped, newType, input;
@@ -135,6 +141,25 @@
     for (index = tree.length - 1; index >= 0; --index) {
       if (!tree[index].input || tree[index].input.length === 0) {
         tree.splice(index, 1);
+      }
+    }
+  };
+  parseParagraphs = function(tree){
+    var block, match, _i, _len;
+    for (_i = 0, _len = tree.length; _i < _len; ++_i) {
+      block = tree[_i];
+      if (block.type !== 'par') {
+        continue;
+      }
+      match = block.input.match(/^\s*-[^-]/);
+      if (match) {
+        block.type = 'unorderedlist';
+        block.depth = match[0].length;
+      }
+      match = block.input.match(/(^\s*#[^#])/);
+      if (match) {
+        block.type = 'orderedlist';
+        block.depth = match[0].length;
       }
     }
   };
