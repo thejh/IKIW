@@ -1,5 +1,5 @@
 (function(){
-  var request, config, couchdb, construct, constructStndPage, constructArticleBody, constructArticleBodyEdit, constructCategoryBox;
+  var request, config, couchdb, construct, constructStndPage, constructArticleBody, constructArticleBodyEdit, constructCategoryBox, constructPreBox;
   request = require('request');
   config = null;
   couchdb = null;
@@ -19,10 +19,17 @@
       } else {
         body = JSON.parse(body);
         if (body.title) {
-          content = constructCategoryBox(body);
+          content = '';
+          if (extra.error) {
+            content += constructPreBox('errorbox', extra.error);
+          }
+          if (extra.info) {
+            content += constructPreBox('infobox', extra.info);
+          }
           if (extra.edit) {
             content += constructArticleBodyEdit(body);
           } else {
+            content += constructCategoryBox(body);
             content += constructArticleBody(body);
           }
           data = {
@@ -75,7 +82,10 @@
     return "<div class=\"content\">\n  <form action='?' method='POST' accept-charset='utf-8'>\n    <textarea name='input' cols='80' rows = '25'>" + doc.markup + "</textarea>\n    <input type='submit' value='Fertig'>\n  </form>\n</div>\n";
   };
   constructCategoryBox = function(doc){
-    return "<div class=\"categories\">\n  TODO\n  \n  <div class=\"dateInfoBox\">\n    <a href=\"./" + doc._id + "?action=edit\">EDIT</a>\n  </div>\n</div>\n";
+    return "<div class=\"categories\">\n  TODO\n  \n  <div class=\"dateInfoBox\">\n    <a class=\"button\" href=\"./" + doc._id + "?action=edit\">EDIT</a>\n  </div>\n</div>\n";
+  };
+  constructPreBox = function(styleClass, text){
+    return "<pre class=\"" + styleClass + "\">\n" + text + "\n</pre>";
   };
   module.exports = construct;
   construct.setConfiguration = function(configuration){

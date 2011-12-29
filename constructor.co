@@ -4,7 +4,7 @@ config = null
 couchdb = null
 
 # Construct a website with XHTML and querying CouchDB
-# extra = {edit: bool, style: 'normal'/'plain', error: 'include error box', info: 'include info box'}
+# extra = {edit: bool, style: 'normal'/'plain'[, error: 'include error box'][, info: 'include info box']}
 construct = (doc_id, response, extra) ->
   # query couchdb
   url = "#{couchdb}#{doc_id}"
@@ -20,9 +20,14 @@ construct = (doc_id, response, extra) ->
     else # doc found, normal article
       body = JSON.parse body
       if body.title
-        content = constructCategoryBox body
+        content = ''
+        if extra.error then content += constructPreBox \errorbox, extra.error
+        if extra.info then content += constructPreBox \infobox, extra.info
         if extra.edit then content += constructArticleBodyEdit body
-        else content += constructArticleBody body
+        else
+          content += constructCategoryBox body
+          content += constructArticleBody body
+        
         data =
           'title': body.title
           'content': content
@@ -91,25 +96,32 @@ constructArticleBody = (doc) ->
 
 constructArticleBodyEdit = (doc) ->
   """
-      <div class="content">
-        <form action='?' method='POST' accept-charset='utf-8'>
-          <textarea name='input' cols='80' rows = '25'>#{doc.markup}</textarea>
-          <input type='submit' value='Fertig'>
-        </form>
-      </div>
+<div class="content">
+  <form action='?' method='POST' accept-charset='utf-8'>
+    <textarea name='input' cols='80' rows = '25'>#{doc.markup}</textarea>
+    <input type='submit' value='Fertig'>
+  </form>
+</div>
 
   """
 
 constructCategoryBox = (doc) ->
   """
-      <div class="categories">
-        TODO
-        
-        <div class="dateInfoBox">
-          <a href="./#{doc._id}?action=edit">EDIT</a>
-        </div>
-      </div>
+<div class="categories">
+  TODO
+  
+  <div class="dateInfoBox">
+    <a class="button" href="./#{doc._id}?action=edit">EDIT</a>
+  </div>
+</div>
 
+  """
+
+constructPreBox = (styleClass, text) ->
+  """
+<pre class="#{styleClass}">
+#{text}
+</pre>
   """
 
 module.exports = construct

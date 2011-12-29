@@ -5,20 +5,95 @@ couchdb = null
 
 compile = (doc_id, newMarkup) ->
   console.log "compiling '#{doc_id}'"
-  result = {}
   
-  #TODO
-  tree = parse newMarkup
-  result.info = JSON.stringify tree
+  result = {}
+  blocks = []
+  
+  newMarkup = newMarkup.replace /\r/g, '' # delete windows chars
+  console.log newMarkup
+  error = parseBlocks blocks, newMarkup
+  if error
+    result.error = error
+    result.info = JSON.stringify blocks
+    return result
+  
+  result.info = JSON.stringify blocks
   
   return result
 
-parse = (input) ->
-  result = []
-  for i of input.split /\n\n/g
-    ;
+################################################################################
+## parse
+
+parseBlocks = (result, text) ->
+  type = null
+  while text and text.length > 0
+    if type is null
+      # no block open
+      regex = /(\n\n+)|([^\\]```)|(^```)|([^\\]\$\$\$)|(^\$\$\$)|([^\\]>>>)|(^>>>)/
+      index = text.search regex
+      match = text.match regex
+      
+      if index != -1
+        if match is null then return "RegExp found and not found ?!\n#{text}"
+        
+        match = match[0] # select first occurrence
+        console.log ">> #{index}: #{JSON.stringify match}"
+        mayEscaped = true
+        newType = null
+        if match[1] is '`' then newType = \code
+        else if match[1] is '$' then newType = \math
+        else if match[1] is '>' then newType = \quote
+        else mayEscaped = false
+        
+        if index != 0 # space between last closing symbol and `index`
+          result.push {
+            \type : \par
+            \input : text.substr 0, index+mayEscaped
+          }
+        
+        text = text.substr index+match.length # remaining text
+        type = newType
+      else
+        result.push {
+          \type : \par
+          \input : text
+        }
+        text = null
+    else
+      # close blocks
+      if type is \code
+        index = text.search /[^\\]```/g
+        if index is -1 then return 'Block not closed: CODE block'
+      else if type is \math
+        index = text.search /[^\\]\$\$\$/g
+        if index is -1 then return 'Block not closed: MATH block'
+      else if type is \quote
+        index = text.search /[^\\]<<</g
+        if index is -1 then return 'Block not closed: QUOTE block'
+      
+      # remove escape characters
+      input = text.substr 0, index+1
+      if type is \code then input = input.replace /\\```/g '```'
+      else if type is \math then input = input.replace /\\\$\$\$/g '$$$'
+      else if type is \quote then input = input.replace /\\<<</g '<<<'
+      
+      result.push {
+        \type : type
+        \input : input
+      }
+      
+      text = text.substr index+4 # remaining text
+      type = null
+    
+    console.log "\n#{text}\n####### #{type} #######"
+  
+  return void
 
 ################################################################################
+# create html
+
+################################################################################
+# other
 
 module.exports = compile
 

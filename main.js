@@ -6,6 +6,7 @@
   compiler = require('./compiler');
   config = JSON.parse(require('fs').readFileSync('config', 'utf8'));
   constructor.setConfiguration(config);
+  compiler.setConfiguration(config);
   PORT = config.port;
   HTDOCS = config.htdocs;
   server = http.createServer(function(request, response){
