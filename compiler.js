@@ -1,5 +1,5 @@
 (function(){
-  var request, config, couchdb, compile, parseBlocks, extractOneLiners, deleteEmptyBlocks, parseParagraphs, _delChars;
+  var request, config, couchdb, compile, parseBlocks, extractOneLiners, deleteEmptyBlocks, parseParagraphs, _parseList, _delChars, _peek;
   request = require('request');
   config = null;
   couchdb = null;
@@ -13,6 +13,7 @@
     if (error) {
       result.error = "ERROR while parsing blocks:\n" + error;
       result.info = "blocks parsed yet:\n\n" + JSON.stringify(tree);
+      onFinish(result);
       return result;
     }
     extractOneLiners(tree);
@@ -21,6 +22,7 @@
     if (error) {
       result.error = "ERROR while parsing paragraphs:\n" + error;
       result.info = "tree so far:\n\n" + JSON.stringify(tree);
+      onFinish(result);
       return result;
     }
     result.info = JSON.stringify(tree);
@@ -145,21 +147,101 @@
     }
   };
   parseParagraphs = function(tree){
-    var block, match, _i, _len;
-    for (_i = 0, _len = tree.length; _i < _len; ++_i) {
-      block = tree[_i];
+    var blockIndex, block, match, error, _len;
+    for (blockIndex = 0, _len = tree.length; blockIndex < _len; ++blockIndex) {
+      block = tree[blockIndex];
       if (block.type !== 'par') {
         continue;
       }
       match = block.input.match(/^\s*-[^-]/);
       if (match) {
         block.type = 'unorderedlist';
-        block.depth = match[0].length;
+        error = _parseList(block, block.input, blockIndex);
+        if (error) {
+          return error;
+        }
+      } else {
+        match = block.input.match(/(^\s*#[^#])/);
+        if (match) {
+          block.type = 'orderedlist';
+          error = _parseList(block, block.input, blockIndex);
+          if (error) {
+            return error;
+          }
+        }
       }
-      match = block.input.match(/(^\s*#[^#])/);
+    }
+  };
+  _parseList = function(block, input, blockIndex){
+    var stack, lines, item, lineIndex, line, match, type, depth, peek, _len;
+    stack = [block];
+    block.items = [];
+    lines = input.split(/\n/g);
+    if (lines.length == 0) {
+      return;
+    }
+    item = {
+      'text': lines[0].substr(lines[0].match(/(^\s*-)|(^\s*#)/)[0].length) + "\n"
+    };
+    _peek(stack).items.push(item);
+    stack.push(item);
+    lines.splice(0, 1);
+    for (lineIndex = 0, _len = lines.length; lineIndex < _len; ++lineIndex) {
+      line = lines[lineIndex];
+      match = line.match(/^\s*-+/);
       if (match) {
-        block.type = 'orderedlist';
-        block.depth = match[0].length;
+        type = 'unorderedlist';
+        depth = line.match(/-+/)[0].length;
+      } else {
+        match = line.match(/^\s*#+/);
+        if (match) {
+          type = 'orderedlist';
+          depth = line.match(/#+/)[0].length;
+        } else {
+          _peek(stack).text += line + '\n';
+          continue;
+        }
+      }
+      line = line.substr(line.match(/(^\s*-+)|(^\s*#+)/)[0].length) + '\n';
+      if (depth === stack.length - 1) {
+        if (type === stack[stack.length - 2].type) {
+          stack.pop();
+          item = {
+            'text': line
+          };
+          _peek(stack).items.push(item);
+          stack.push(item);
+        } else {
+          return "List type not compatible in block " + (blockIndex + 1) + " line " + (lineIndex + 2) + ".";
+        }
+      } else if (depth === stack.length) {
+        peek = _peek(stack);
+        if (!peek.type) {
+          peek.type = type;
+        }
+        if (!peek.items) {
+          peek.items = [];
+        }
+        item = {
+          'text': line
+        };
+        peek.items.push(item);
+        stack.push(item);
+      } else if (depth > stack.length) {
+        return "Depth to high in block " + (blockIndex + 1) + " line " + (lineIndex + 2) + ".";
+      } else {
+        while (stack.length > depth) {
+          stack.pop();
+        }
+        peek = _peek(stack);
+        if (peek.type !== type) {
+          return "List type not compatible in block " + (blockIndex + 1) + " line " + (lineIndex + 2) + ".";
+        }
+        item = {
+          'text': line
+        };
+        peek.items.push(item);
+        stack.push(item);
       }
     }
   };
@@ -168,6 +250,9 @@
     firstPart = text.substr(0, startIndex);
     lastPart = text.substr(startIndex + length);
     return firstPart + lastPart;
+  };
+  _peek = function(elementStack){
+    return elementStack[elementStack.length - 1];
   };
   module.exports = compile;
   compile.setConfiguration = function(configuration){

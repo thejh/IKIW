@@ -14,6 +14,8 @@ compile = (doc_id, newMarkup, onFinish) ->
   if error
     result.error = "ERROR while parsing blocks:\n#{error}"
     result.info = "blocks parsed yet:\n\n#{JSON.stringify tree}"
+    
+    onFinish result
     return result
   
   extractOneLiners tree # extract commands, headlines and defines
@@ -23,11 +25,13 @@ compile = (doc_id, newMarkup, onFinish) ->
   if error
     result.error = "ERROR while parsing paragraphs:\n#{error}"
     result.info = "tree so far:\n\n#{JSON.stringify tree}"
+    
+    onFinish result
     return result
   
   result.info = JSON.stringify tree
   
-  onFinish(result);
+  onFinish result
 
 ################################################################################
 ## parse
@@ -139,20 +143,90 @@ deleteEmptyBlocks = (tree) ->
   return void
 
 parseParagraphs = (tree) ->
-  for block of tree
+  for block, blockIndex of tree
     if block.type !== \par then continue
     
     match = block.input.match /^\s*-[^-]/
     if match
       block.type = \unorderedlist
-      block.depth = match[0].length
-    
-    match = block.input.match /(^\s*#[^#])/
-    if match
-      block.type = \orderedlist
-      block.depth = match[0].length
+      error = _parseList block, block.input, blockIndex
+      if error then return error
+    else
+      match = block.input.match /(^\s*#[^#])/
+      if match
+        block.type = \orderedlist
+        error = _parseList block, block.input, blockIndex
+        if error then return error
   
   return void
+
+_parseList = (block, input, blockIndex) ->
+  stack = [block]
+  block.items = []
+  
+  lines = input.split /\n/g
+  if lines.length == 0
+    return void
+  
+  item = \text : "#{lines[0].substr(lines[0].match(/(^\s*-)|(^\s*#)/)[0].length)}\n" # del list symbols
+  _peek stack .items.push item
+  stack.push item
+  lines.splice 0, 1 # delete first line in `lines`
+  
+  for line, lineIndex of lines
+    match = line.match /^\s*-+/
+    if match
+      type = \unorderedlist
+      depth = line.match(/-+/)[0].length
+    else
+      match = line.match /^\s*#+/
+      if match
+        type = \orderedlist
+        depth = line.match(/#+/)[0].length
+      else # no \- or \# in the beginning
+        _peek stack .text += line+'\n'
+        continue
+    
+    line = line.substr(line.match(/(^\s*-+)|(^\s*#+)/)[0].length)+'\n' # del list symbols
+    
+    if depth is stack.length-1 # same depth as previous item
+      if type is stack[stack.length-2].type
+        # new item, same list
+        
+        stack.pop!
+        item = \text : line
+        _peek stack .items.push item
+        stack.push item
+      else
+        return "List type not compatible in block #{blockIndex+1} line #{lineIndex+2}."
+    else if depth is stack.length
+      # higher depth than previous item, open new sublist
+      
+      peek = _peek stack
+      
+      if not peek.type then peek.type = type
+      if not peek.items then peek.items = []
+      
+      item = \text : line
+      peek.items.push item
+      stack.push item
+    else if depth > stack.length
+      return "Depth to high in block #{blockIndex+1} line #{lineIndex+2}."
+    else
+      # close other lists
+      stack.pop! while stack.length > depth
+      
+      peek = _peek stack
+      
+      if peek.type !== type
+        return "List type not compatible in block #{blockIndex+1} line #{lineIndex+2}."
+      
+      item = \text : line
+      peek.items.push item
+      stack.push item
+  
+  return void
+
 ################################################################################
 # create html
 
@@ -162,7 +236,10 @@ parseParagraphs = (tree) ->
 _delChars = (text, startIndex, length) ->
   firstPart = text.substr 0, startIndex
   lastPart = text.substr startIndex+length
-  return firstPart+lastPart
+  firstPart+lastPart
+
+_peek = (elementStack) ->
+  elementStack[elementStack.length-1]
 
 module.exports = compile
 
