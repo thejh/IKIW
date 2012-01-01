@@ -1,10 +1,10 @@
 (function(){
-  var request, config, couchdb, compile, parseBlocks, extractOneLiners, deleteEmptyBlocks, parseLists, parseParagraphs, _parseList, _parseParagraph, __closeAllElements, __getParam, _delChars, _peek;
+  var request, config, couchdb, compile, parseBlocks, extractOneLiners, deleteEmptyBlocks, parseLists, parseParagraphs, generateBlocks, generateList, generateSubList, generateMath, generateQuote, _parseList, _parseParagraph, __closeAllElements, __getParam, _delChars, _peek;
   request = require('request');
   config = null;
   couchdb = null;
   compile = function(doc_id, newMarkup, onFinish){
-    var result, tree, error;
+    var result, tree, error, resulthtml, url;
     console.log("compiling '" + doc_id + "'");
     result = {};
     tree = [];
@@ -25,7 +25,6 @@
       onFinish(result);
       return result;
     }
-    error(parseParagraphs(tree));
     if (error) {
       result.error = "ERROR while parsing paragraphs:\n" + error;
       result.info = "tree so far:\n\n" + JSON.stringify(tree);
@@ -33,7 +32,45 @@
       return result;
     }
     result.info = JSON.stringify(tree);
-    return onFinish(result);
+    resulthtml = generateBlocks(tree);
+    if (!resulthtml) {
+      result.err;
+    }
+    result.info = resulthtml;
+    url = couchdb + "" + doc_id;
+    return request(url, function(error, resp, body){
+      var document;
+      if (error) {
+        result.error = "Couldn't get Document.\nDescription:\n" + JSON.stringify(error);
+        onFinish(result);
+        return result;
+      } else if (resp.statusCode !== 200) {
+        result.error = "Couldn't get Document.\nResponse status code from DB: " + resp.statusCode;
+        onFinish(result);
+        return result;
+      } else {
+        document = JSON.parse(body);
+        document.html = resulthtml;
+        return request({
+          method: 'PUT',
+          url: url,
+          multipart: [{
+            'content-type': 'application/json',
+            body: JSON.stringify(document)
+          }]
+        }, function(error, resp, body){
+          if (error) {
+            result.error = "Couldn't save Document.\nDescription:\n" + JSON.stringify(error);
+            onFinish(result);
+            return result;
+          } else {
+            result.info = "DB response status code: " + resp.statusCode;
+            onFinish(result);
+            return result;
+          }
+        });
+      }
+    });
   };
   parseBlocks = function(result, text){
     var type, regex, index, match, mayEscaped, newType, input;
@@ -257,7 +294,7 @@
     for (blockIndex = 0, _len = tree.length; blockIndex < _len; ++blockIndex) {
       block = tree[blockIndex];
       if (block.type === 'par') {
-        _results.push(parseBlock(block, blockIndex));
+        _results.push(_parseParagraph(block, blockIndex));
       }
     }
     return _results;
@@ -294,7 +331,8 @@
     var peek, _results = [];
     while (block.length > 1) {
       peek = _peek(stack);
-      if (peek.type === ) {}
+      stack.pop();
+      if (peek.type === '') {}
     }
     return _results;
   };
@@ -321,6 +359,59 @@
       'parameter': parsed,
       'text': remaining
     };
+  };
+  generateBlocks = function(tree){
+    var resulttext, blockIndex, block, _len;
+    resulttext = '';
+    for (blockIndex = 0, _len = tree.length; blockIndex < _len; ++blockIndex) {
+      block = tree[blockIndex];
+      if (block.type === 'par') {
+        resulttext += '\n' + JSON.stringify(tree + '\n');
+      } else if (block.type === 'orderedlist' || block.type === 'unorderedlist') {
+        resulttext += generateList(block);
+      } else if (block.type === 'math') {
+        resulttext += generateMath(block);
+      } else if (block.type === 'quote') {
+        resulttext += generateQuote(block);
+      }
+    }
+    return resulttext;
+  };
+  generateList = function(block){
+    var res, subItem, _i, _ref, _len;
+    if (block.type === 'orderedlist') {
+      res = "<ol>\n";
+      for (_i = 0, _len = (_ref = block.items).length; _i < _len; ++_i) {
+        subItem = _ref[_i];
+        res += generateSubList(subItem);
+      }
+      return res += "\n</ol>";
+    } else {
+      res = "<ul>\n";
+      for (_i = 0, _len = (_ref = block.items).length; _i < _len; ++_i) {
+        subItem = _ref[_i];
+        res += generateSubList(subItem);
+      }
+      return res += "\n</ul>";
+    }
+  };
+  generateSubList = function(item){
+    var res, subItem, _i, _ref, _len;
+    if (item.type) {
+      res = "<li>" + item.text + "\n" + (item.type === 'orderedlist' ? '<ol>' : '<ul>') + "\n";
+      for (_i = 0, _len = (_ref = item.items).length; _i < _len; ++_i) {
+        subItem = _ref[_i];
+        res += generateSubList(subItem);
+      }
+      res += (item.type === 'orderedlist' ? '</ol>' : '</ul>') + "\n</li>";
+      return res;
+    } else {
+      return "<li>" + item.text + "</li>";
+    }
+  };
+  generateMath = function(block){};
+  generateQuote = function(block){
+    return "<blockquote>\n" + generateParagraph(block.quote) + "\n</blockquote>";
   };
   _delChars = function(text, startIndex, length){
     var firstPart, lastPart;

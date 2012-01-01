@@ -31,7 +31,7 @@ compile = (doc_id, newMarkup, onFinish) ->
     onFinish result
     return result
   
-  error parseParagraphs tree
+  #error parseParagraphs tree #TODO
   if error
     result.error = "ERROR while parsing paragraphs:\n#{error}"
     result.info = "tree so far:\n\n#{JSON.stringify tree}"
@@ -41,7 +41,34 @@ compile = (doc_id, newMarkup, onFinish) ->
   
   result.info = JSON.stringify tree
   
-  onFinish result
+  resulthtml = generateBlocks tree
+  if not resulthtml
+    result.err
+  
+  result.info = resulthtml
+  
+  url = "#{couchdb}#{doc_id}"
+  request url, (error, resp, body) ->
+    if error
+      result.error = "Couldn't get Document.\nDescription:\n#{JSON.stringify(error)}"
+      onFinish result
+      return result
+    else if resp.statusCode is not 200
+      result.error = "Couldn't get Document.\nResponse status code from DB: #{resp.statusCode}"
+      onFinish result
+      return result
+    else # doc found
+      document = JSON.parse body
+      document.html = resulthtml
+      request { method: \PUT, url: url, multipart: [{'content-type': 'application/json', body: JSON.stringify document}]}, (error, resp, body) ->
+        if error
+          result.error = "Couldn't save Document.\nDescription:\n#{JSON.stringify(error)}"
+          onFinish result
+          return result
+        else
+          result.info = "DB response status code: #{resp.statusCode}"
+          onFinish result
+          return result
 
 ################################################################################
 ## parse
@@ -240,7 +267,7 @@ _parseList = (block, input, blockIndex) ->
 parseParagraphs = (tree) ->
   for block, blockIndex of tree
     if block.type is \par
-      parseBlock block, blockIndex
+      _parseParagraph block, blockIndex
 
 _parseParagraph = (block, blockIndex) ->
   stack = [block] # opened elements
@@ -268,7 +295,9 @@ _parseParagraph = (block, blockIndex) ->
 __closeAllElements = (stack) ->
   while block.length > 1
     peek = _peek stack
-    if peek.type is `` then
+    stack.pop!
+    if peek.type is '' then
+    
     #TODO
 
 # extracts the parameters in the beginning of the text. text= `[paremeter] ...`
@@ -297,6 +326,44 @@ __getParam = (text) ->
 ################################################################################
 # create html
 
+generateBlocks = (tree) ->
+  resulttext = ''
+  for block, blockIndex of tree
+    if block.type is \par
+      resulttext += '\n'+JSON.stringify tree+'\n'
+      #TODO
+    else if block.type is \orderedlist or block.type is \unorderedlist
+      resulttext += generateList block
+    else if block.type is \math
+      resulttext += generateMath block
+    else if block.type is \quote
+      resulttext += generateQuote block
+  
+  return resulttext
+
+generateList = (block) ->
+  if block.type is \orderedlist
+    res = "<ol>\n"
+    res += generateSubList subItem for subItem of block.items
+    res += "\n</ol>"
+  else 
+    res = "<ul>\n"
+    res += generateSubList subItem for subItem of block.items
+    res += "\n</ul>"
+
+generateSubList = (item) ->
+  # TODO generate item text html
+  if item.type
+    res = "<li>#{item.text}\n#{if item.type is \orderedlist then '<ol>' else '<ul>'}\n"
+    res += generateSubList subItem for subItem of item.items
+    res += "#{if item.type is \orderedlist then '</ol>' else '</ul>'}\n</li>"
+    return res
+  else
+    "<li>#{item.text}</li>"
+generateMath = (block) ->
+  #TODO
+generateQuote = (block) ->
+  "<blockquote>\n#{generateParagraph block.quote}\n</blockquote>"
 ################################################################################
 # other
 
