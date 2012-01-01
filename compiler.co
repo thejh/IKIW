@@ -9,6 +9,8 @@ compile = (doc_id, newMarkup, onFinish) ->
   result = {}
   tree = []
   
+  # TODO catch errors / exceptions
+  
   newMarkup = newMarkup.replace /\r/g, '' # delete windows chars
   error = parseBlocks tree, newMarkup
   if error
@@ -21,7 +23,15 @@ compile = (doc_id, newMarkup, onFinish) ->
   extractOneLiners tree # extract commands, headlines and defines
   deleteEmptyBlocks tree # delete blocks that contained only one-liners
   
-  error = parseParagraphs tree # identify lists
+  error = parseLists tree # identify and parse lists
+  if error
+    result.error = "ERROR while parsing lists:\n#{error}"
+    result.info = "tree so far:\n\n#{JSON.stringify tree}"
+    
+    onFinish result
+    return result
+  
+  error parseParagraphs tree
   if error
     result.error = "ERROR while parsing paragraphs:\n#{error}"
     result.info = "tree so far:\n\n#{JSON.stringify tree}"
@@ -142,7 +152,7 @@ deleteEmptyBlocks = (tree) ->
       tree.splice index, 1
   return void
 
-parseParagraphs = (tree) ->
+parseLists = (tree) ->
   for block, blockIndex of tree
     if block.type !== \par then continue
     
@@ -226,6 +236,63 @@ _parseList = (block, input, blockIndex) ->
       stack.push item
   
   return void
+
+parseParagraphs = (tree) ->
+  for block, blockIndex of tree
+    if block.type is \par
+      parseBlock block, blockIndex
+
+_parseParagraph = (block, blockIndex) ->
+  stack = [block] # opened elements
+  block.elements = [{\text : ''}]
+  
+  remainder = block.input
+  while remainder.length > 0
+    regex = /(^`)|([^\\]`)/g
+    index = remainder.search regex
+    if index !== -1
+      match = remainder.match regex
+      if index > 0
+        if match.length is 1 then _peek stack .text += remainder.substr 0, index
+        else _peek stack .text += remainder.substr 0, index+1 # escapable
+      
+      __closeAllElements stack
+      elem = {
+        \text : ''
+        \type : code
+      }
+        
+
+# closes all elements on the stack, except the first (the whole block)
+# elements that can be closed by this method: *, _, §
+__closeAllElements = (stack) ->
+  while block.length > 1
+    peek = _peek stack
+    if peek.type is `` then
+    #TODO
+
+# extracts the parameters in the beginning of the text. text= `[paremeter] ...`
+# returns: {\parameter: object (JSON), \text: (remaining text)}
+__getParam = (text) ->
+  if text.search /^\[/ !== 0
+    # no parameters given
+    return {\parameter : {}, \text : text}
+  
+  text = text.substr 1, text.length
+  index = text.search /(^\])|([^\\]\])/
+  if index is 0
+    # parameter empty or malformed
+    return {\parameter : {}, \text : text.substr match.length, text.length}
+  
+  param = text.substr 0, index+1
+  remaining = text.substr index+2
+  
+  parsed = JSON.parse param
+  
+  return {
+    \parameter : parsed
+    \text : remaining
+  }
 
 ################################################################################
 # create html

@@ -1,5 +1,5 @@
 (function(){
-  var request, config, couchdb, compile, parseBlocks, extractOneLiners, deleteEmptyBlocks, parseParagraphs, _parseList, _delChars, _peek;
+  var request, config, couchdb, compile, parseBlocks, extractOneLiners, deleteEmptyBlocks, parseLists, parseParagraphs, _parseList, _parseParagraph, __closeAllElements, __getParam, _delChars, _peek;
   request = require('request');
   config = null;
   couchdb = null;
@@ -18,7 +18,14 @@
     }
     extractOneLiners(tree);
     deleteEmptyBlocks(tree);
-    error = parseParagraphs(tree);
+    error = parseLists(tree);
+    if (error) {
+      result.error = "ERROR while parsing lists:\n" + error;
+      result.info = "tree so far:\n\n" + JSON.stringify(tree);
+      onFinish(result);
+      return result;
+    }
+    error(parseParagraphs(tree));
     if (error) {
       result.error = "ERROR while parsing paragraphs:\n" + error;
       result.info = "tree so far:\n\n" + JSON.stringify(tree);
@@ -146,7 +153,7 @@
       }
     }
   };
-  parseParagraphs = function(tree){
+  parseLists = function(tree){
     var blockIndex, block, match, error, _len;
     for (blockIndex = 0, _len = tree.length; blockIndex < _len; ++blockIndex) {
       block = tree[blockIndex];
@@ -244,6 +251,76 @@
         stack.push(item);
       }
     }
+  };
+  parseParagraphs = function(tree){
+    var blockIndex, block, _len, _results = [];
+    for (blockIndex = 0, _len = tree.length; blockIndex < _len; ++blockIndex) {
+      block = tree[blockIndex];
+      if (block.type === 'par') {
+        _results.push(parseBlock(block, blockIndex));
+      }
+    }
+    return _results;
+  };
+  _parseParagraph = function(block, blockIndex){
+    var stack, remainder, regex, index, match, elem, _results = [];
+    stack = [block];
+    block.elements = [{
+      'text': ''
+    }];
+    remainder = block.input;
+    while (remainder.length > 0) {
+      regex = /(^`)|([^\\]`)/g;
+      index = remainder.search(regex);
+      if (index !== -1) {
+        match = remainder.match(regex);
+        if (index > 0) {
+          if (match.length === 1) {
+            _peek(stack).text += remainder.substr(0, index);
+          } else {
+            _peek(stack).text += remainder.substr(0, index + 1);
+          }
+        }
+        __closeAllElements(stack);
+        _results.push(elem = {
+          'text': '',
+          'type': code
+        });
+      }
+    }
+    return _results;
+  };
+  __closeAllElements = function(stack){
+    var peek, _results = [];
+    while (block.length > 1) {
+      peek = _peek(stack);
+      if (peek.type === ) {}
+    }
+    return _results;
+  };
+  __getParam = function(text){
+    var index, param, remaining, parsed;
+    if (text.search(/^\[/ !== 0)) {
+      return {
+        'parameter': {},
+        'text': text
+      };
+    }
+    text = text.substr(1, text.length);
+    index = text.search(/(^\])|([^\\]\])/);
+    if (index === 0) {
+      return {
+        'parameter': {},
+        'text': text.substr(match.length, text.length)
+      };
+    }
+    param = text.substr(0, index + 1);
+    remaining = text.substr(index + 2);
+    parsed = JSON.parse(param);
+    return {
+      'parameter': parsed,
+      'text': remaining
+    };
   };
   _delChars = function(text, startIndex, length){
     var firstPart, lastPart;
