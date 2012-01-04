@@ -10,7 +10,18 @@ compiler = require './compiler'
 # configurations
 config = JSON.parse (require \fs .readFileSync 'config', 'utf8')
 constructor.setConfiguration config
+
 compiler.setConfiguration config
+
+(error) <- constructor.refreshIDTitleMap
+if error
+  console.log error
+  return;
+
+(error) <- constructor.refreshSubcategoryMap
+if error
+  console.log error
+  return;
 
 PORT = config.port
 HTDOCS = config.htdocs

@@ -1,5 +1,5 @@
 (function(){
-  var http, path, constructor, compiler, config, PORT, HTDOCS, server;
+  var http, path, constructor, compiler, config;
   http = require('http');
   path = require('path');
   constructor = require('./constructor');
@@ -7,61 +7,74 @@
   config = JSON.parse(require('fs').readFileSync('config', 'utf8'));
   constructor.setConfiguration(config);
   compiler.setConfiguration(config);
-  PORT = config.port;
-  HTDOCS = config.htdocs;
-  server = http.createServer(function(request, response){
-    var url, edit, style, doc_id, extra, post;
-    console.log("rec: request type '" + request.method + "' from " + request.connection.remoteAddress + ": '" + request.url + "'");
-    url = require('url').parse(request.url, true);
-    edit = false;
-    if (url.query && url.query.action && url.query.action === 'edit') {
-      edit = true;
+  constructor.refreshIDTitleMap(function(error){
+    if (error) {
+      console.log(error);
+      return;
     }
-    style = 'normal';
-    if (url.query && url.query.style && url.query.style === 'plain') {
-      style = 'plain';
-    }
-    doc_id = url.pathname.substr(1);
-    if (doc_id.length === 0) {
-      doc_id = config.home;
-    }
-    extra = {
-      'style': style,
-      'edit': edit
-    };
-    if (request.method === 'POST') {
-      request.setEncoding('utf8');
-      post = '';
-      request.on('data', function(data){
-        if (post !== void 8 && post.length + data.length <= config.maxPostSize) {
-          return post += data;
-        } else {
-          post = void 8;
-          response.writeHead(414);
-          return response.end();
+    return constructor.refreshSubcategoryMap(function(error){
+      var PORT, HTDOCS, server;
+      if (error) {
+        console.log(error);
+        return;
+      }
+      PORT = config.port;
+      HTDOCS = config.htdocs;
+      server = http.createServer(function(request, response){
+        var url, edit, style, doc_id, extra, post;
+        console.log("rec: request type '" + request.method + "' from " + request.connection.remoteAddress + ": '" + request.url + "'");
+        url = require('url').parse(request.url, true);
+        edit = false;
+        if (url.query && url.query.action && url.query.action === 'edit') {
+          edit = true;
         }
-      });
-      return request.on('end', function(){
-        if (post === void 8) {
-          return;
+        style = 'normal';
+        if (url.query && url.query.style && url.query.style === 'plain') {
+          style = 'plain';
         }
-        post = require('querystring').parse(post);
-        if (post.input) {
-          return compiler(doc_id, post.input, function(compilerResult){
-            __import(extra, compilerResult);
-            return constructor(doc_id, response, extra);
+        doc_id = url.pathname.substr(1);
+        if (doc_id.length === 0) {
+          doc_id = config.home;
+        }
+        extra = {
+          'style': style,
+          'edit': edit
+        };
+        if (request.method === 'POST') {
+          request.setEncoding('utf8');
+          post = '';
+          request.on('data', function(data){
+            if (post !== void 8 && post.length + data.length <= config.maxPostSize) {
+              return post += data;
+            } else {
+              post = void 8;
+              response.writeHead(414);
+              return response.end();
+            }
+          });
+          return request.on('end', function(){
+            if (post === void 8) {
+              return;
+            }
+            post = require('querystring').parse(post);
+            if (post.input) {
+              return compiler(doc_id, post.input, function(compilerResult){
+                __import(extra, compilerResult);
+                return constructor(doc_id, response, extra);
+              });
+            } else {
+              response.writeHead(400);
+              return response.end();
+            }
           });
         } else {
-          response.writeHead(400);
-          return response.end();
+          return constructor(doc_id, response, extra);
         }
       });
-    } else {
-      return constructor(doc_id, response, extra);
-    }
+      server.listen(PORT, '127.0.0.1');
+      return console.log("Server running at http://127.0.0.1:" + PORT + "/\n");
+    });
   });
-  server.listen(PORT, '127.0.0.1');
-  console.log("Server running at http://127.0.0.1:" + PORT + "/\n");
   function __import(obj, src){
     var own = {}.hasOwnProperty;
     for (var key in src) if (own.call(src, key)) obj[key] = src[key];

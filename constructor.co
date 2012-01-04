@@ -3,6 +3,9 @@ request = require 'request'
 config = null
 couchdb = null
 
+idTitleMap = null
+subcategoryMap = null
+
 # Construct a website with XHTML and querying CouchDB
 # extra = {edit: bool, style: 'normal'/'plain'[, error: 'include error box'][, info: 'include info box'][, ok: 'include ok box']}
 # edit and style are not optional but the other fields
@@ -16,7 +19,7 @@ construct = (doc_id, toResponse, extra) ->
     toResponse.writeHead 404
     toResponse.end!
     return;
-  if response.statusCode is not 200
+  if response.statusCode !== 200
     toResponse.writeHead response.statusCode
     toResponse.end!
     return;
@@ -32,10 +35,12 @@ construct = (doc_id, toResponse, extra) ->
     if extra.ok then content += constructPreBox \okbox, extra.ok
     
     # "real content"
+    # category box
+    (categoryBox) <- constructCategoryBox document
+    content += categoryBox
+    # content
     if extra.edit then content += constructArticleBodyEdit document
-    else
-      content += constructCategoryBox document
-      content += constructArticleBody document
+    else content += constructArticleBody document
       
     data =
       'title': document.title
@@ -62,7 +67,7 @@ construct = (doc_id, toResponse, extra) ->
       if error # could not get attachment
         toResponse.writeHead 500
         toResponse.end!
-      else if response.statusCode is not 200 # could not find attachment
+      else if response.statusCode !== 200 # could not find attachment
         toResponse.writeHead response.statusCode
         toResponse.end!
       else
@@ -74,7 +79,6 @@ construct = (doc_id, toResponse, extra) ->
           toResponse.writeHead 200, 'Content-Type': document._attachments[attachmentName].type
         
         toResponse.end body
-
 
 constructPreBox = (styleClass, text) ->
   """
@@ -102,17 +106,36 @@ constructArticleBodyEdit = (doc) ->
 
   """
   
-constructCategoryBox = (doc) ->
-  """
+constructCategoryBox = (doc, callback) ->
+  
+  
+  categories = doc.categories
+  if not categories then categories = []
+  else if categories.length !== 0
+    
+    ;#TODO
+  
+  subcategories = doc.subcategories
+  if not subcategories then subcategories = []
+  else if subcategories.length !== 0
+    ;#TODO
+  
+  callback ok: """
 <div class="categories">
-  TODO
+  <p class="categories">
+    #{categories}
+  </p>
+  <p class="category">#{doc.title}</p>
+  <p class="subcategories">
+    #{subcategories}
+  </p>
   
   <div class="dateInfoBox">
     <a class="button" href="./#{doc._id}?action=edit">EDIT</a>
   </div>
 </div>
 
-  """
+    """
 
 # data = {title:'...', content:'...'}
 constructStndPage = (data, style) ->
@@ -151,4 +174,38 @@ module.exports = construct
 construct.setConfiguration = (configuration) ->
   config := configuration
   couchdb := "http://#{config.couchdb.host}:#{config.couchdb.port}/#{config.couchdb.dbname}/"
+
+# callback = (error) -> ...
+construct.refreshIDTitleMap = (callback) ->
+  (error, resp, body) <- request "#{couchdb}_design/blink/_view/id_title_map"
+  if error
+    callback error
+    return;
+  if resp.statusCode !== 200
+    callback "Couldnt request id_title_map; status code: #{resp.statusCode}"
+    return;
+  
+  resp = JSON.parse body
+  idTitleMap = resp.rows
+  
+  console.log JSON.stringify idTitleMap
+  
+  callback!
+
+# callback = (error) -> ...
+construct.refreshSubcategoryMap = (callback) ->
+  (error, resp, body) <- request "#{couchdb}_design/blink/_view/subcategories"
+  if error
+    callback error
+    return;
+  if resp.statusCode !== 200
+    callback "Couldnt request subcategory map; status code: #{resp.statusCode}"
+    return;
+  
+  resp = JSON.parse body
+  subcategoryMap = resp.rows[0].value
+  
+  console.log JSON.stringify subcategoryMap
+  
+  callback!
 
