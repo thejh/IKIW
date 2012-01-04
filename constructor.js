@@ -48,8 +48,11 @@
             return response.end(body.content);
           } else if (Object.keys(body._attachments).length > 0) {
             url = couchdb + "" + doc_id + "/" + Object.keys(body._attachments)[0];
-            console.log("send: request couchdb for attachement: " + url);
-            return request(url, function(error, resp, body){
+            console.log("send: request couchdb for attachment: " + url);
+            return request({
+              uri: url,
+              encoding: null
+            }, function(error, resp, body2){
               if (error) {
                 request.writeHead(500);
                 return request.end();
@@ -57,8 +60,10 @@
                 response.writeHead(resp.statusCode);
                 return response.end();
               } else {
-                response.writeHead(200, body.type);
-                return response.end(resp.body);
+                response.writeHead(200, {
+                  'Content-Type': body.type
+                });
+                return response.end(body2);
               }
             });
           } else {

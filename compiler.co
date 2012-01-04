@@ -6,69 +6,73 @@ couchdb = null
 compile = (doc_id, newMarkup, onFinish) ->
   console.log "compiling '#{doc_id}'"
   
-  result = {}
-  tree = []
-  
-  # TODO catch errors / exceptions
-  
-  newMarkup = newMarkup.replace /\r/g, '' # delete windows chars
-  error = parseBlocks tree, newMarkup
-  if error
-    result.error = "ERROR while parsing blocks:\n#{error}"
-    result.info = "blocks parsed yet:\n\n#{JSON.stringify tree}"
+  try
+    result = {}
+    tree = []
     
-    onFinish result
-    return result
-  
-  extractOneLiners tree # extract commands, headlines and defines
-  deleteEmptyBlocks tree # delete blocks that contained only one-liners
-  
-  error = parseLists tree # identify and parse lists
-  if error
-    result.error = "ERROR while parsing lists:\n#{error}"
-    result.info = "tree so far:\n\n#{JSON.stringify tree}"
-    
-    onFinish result
-    return result
-  
-  #error parseParagraphs tree #TODO
-  if error
-    result.error = "ERROR while parsing paragraphs:\n#{error}"
-    result.info = "tree so far:\n\n#{JSON.stringify tree}"
-    
-    onFinish result
-    return result
-  
-  result.info = JSON.stringify tree
-  
-  resulthtml = generateBlocks tree
-  if not resulthtml
-    result.err
-  
-  result.info = resulthtml
-  
-  url = "#{couchdb}#{doc_id}"
-  request url, (error, resp, body) ->
+    newMarkup = newMarkup.replace /\r/g, '' # delete windows chars
+    error = parseBlocks tree, newMarkup
     if error
-      result.error = "Couldn't get Document.\nDescription:\n#{JSON.stringify(error)}"
+      result.error = "ERROR while parsing blocks:\n#{error}"
+      result.info = "blocks parsed yet:\n\n#{JSON.stringify tree}"
+      
       onFinish result
       return result
-    else if resp.statusCode is not 200
-      result.error = "Couldn't get Document.\nResponse status code from DB: #{resp.statusCode}"
+  
+    extractOneLiners tree # extract commands, headlines and defines
+    deleteEmptyBlocks tree # delete blocks that contained only one-liners
+    
+    error = parseLists tree # identify and parse lists
+    if error
+      result.error = "ERROR while parsing lists:\n#{error}"
+      result.info = "tree so far:\n\n#{JSON.stringify tree}"
+      
       onFinish result
       return result
-    else # doc found
-      document = JSON.parse body
-      document.html = resulthtml
-      request { method: \PUT, url: url, multipart: [{'content-type': 'application/json', body: JSON.stringify document}]}, (error, resp, body) ->
-        if error
-          result.error = "Couldn't save Document.\nDescription:\n#{JSON.stringify(error)}"
-          onFinish result
-          return result
-        else
-          result.info = "DB response status code: #{resp.statusCode}"
-          onFinish result
-          return result
+    
+    #error parseParagraphs tree #TODO
+    if error
+      result.error = "ERROR while parsing paragraphs:\n#{error}"
+      result.info = "tree so far:\n\n#{JSON.stringify tree}"
+      
+      onFinish result
+      return result
+  
+    result.info = JSON.stringify tree
+    
+    resulthtml = generateBlocks tree
+    if not resulthtml
+      result.err
+    
+    result.info = resulthtml
+    
+    url = "#{couchdb}#{doc_id}"
+    request url, (error, resp, body) ->
+      if error
+        result.error = "Couldn't get Document.\nDescription:\n#{JSON.stringify(error)}"
+        onFinish result
+        return result
+      else if resp.statusCode is not 200
+        result.error = "Couldn't get Document.\nResponse status code from DB: #{resp.statusCode}"
+        onFinish result
+        return result
+      else # doc found
+        document = JSON.parse body
+        document.html = resulthtml
+        request { method: \PUT, url: url, multipart: [{'content-type': 'application/json', body: JSON.stringify document}]}, (error, resp, body) ->
+          if error
+            result.error = "Couldn't save Document.\nDescription:\n#{JSON.stringify(error)}"
+            onFinish result
+            return result
+          else
+            result.info = "DB response status code: #{resp.statusCode}"
+            onFinish result
+            return result
+  
+  #catch (error)
+  #  result.error = error
+  #  onFinish result
+  #  return result
 
 ################################################################################
 ## parse
