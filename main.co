@@ -51,9 +51,9 @@ server = http.createServer (request, response) ->
       if post is void then return # 414
       post := require 'querystring' .parse post
       if post.input
-        compiler doc_id, post.input, (result) ->
-          extra <<< result
-          constructor doc_id, response, extra
+        (compilerResult) <- compiler doc_id, post.input
+        extra <<< compilerResult
+        constructor doc_id, response, extra
       else
         response.writeHead 400 # Bad Request
         response.end!

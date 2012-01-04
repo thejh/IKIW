@@ -47,8 +47,8 @@
         }
         post = require('querystring').parse(post);
         if (post.input) {
-          return compiler(doc_id, post.input, function(result){
-            __import(extra, result);
+          return compiler(doc_id, post.input, function(compilerResult){
+            __import(extra, compilerResult);
             return constructor(doc_id, response, extra);
           });
         } else {

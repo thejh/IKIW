@@ -4,57 +4,115 @@ config = null
 couchdb = null
 
 # Construct a website with XHTML and querying CouchDB
-# extra = {edit: bool, style: 'normal'/'plain'[, error: 'include error box'][, info: 'include info box']}
-construct = (doc_id, response, extra) ->
+# extra = {edit: bool, style: 'normal'/'plain'[, error: 'include error box'][, info: 'include info box'][, ok: 'include ok box']}
+# edit and style are not optional but the other fields
+construct = (doc_id, toResponse, extra) ->
   # query couchdb
   url = "#{couchdb}#{doc_id}"
   console.log "send: request couchdb: #{url}"
-  request url, (error, resp, body) ->
-    if error
-      console.log JSON.stringify(error)
-      response.writeHead 500
-      response.end!
-    else if resp.statusCode is not 200
-      response.writeHead resp.statusCode
-      response.end!
-    else # doc found, normal article
-      body = JSON.parse body
-      if body.title
-        content = ''
-        if extra.error then content += constructPreBox \errorbox, extra.error
-        if extra.info then content += constructPreBox \infobox, extra.info
-        if extra.edit then content += constructArticleBodyEdit body
+  (error, response, body) <- request url
+  if error
+    console.log JSON.stringify(error)
+    toResponse.writeHead 404
+    toResponse.end!
+    return;
+  if response.statusCode is not 200
+    toResponse.writeHead response.statusCode
+    toResponse.end!
+    return;
+  
+  document = JSON.parse body # document found
+  if document.title # document is normal article
+    console.log "normal article: #{document.title}"
+    content = ''
+    
+    # boxes from prev runs in the beginning
+    if extra.error then content += constructPreBox \errorbox, extra.error
+    if extra.info then content += constructPreBox \infobox, extra.info
+    if extra.ok then content += constructPreBox \okbox, extra.ok
+    
+    # "real content"
+    if extra.edit then content += constructArticleBodyEdit document
+    else
+      content += constructCategoryBox document
+      content += constructArticleBody document
+      
+    data =
+      'title': document.title
+      'content': content
+    
+    toResponse.writeHead 200, 'Content-Type': 'text/html'
+    toResponse.end constructStndPage data, extra.style
+  else # doc found, but it is not an article
+    if document.content # hand out content field
+      toResponse.writeHead 200, 'Content-Type': document.type
+      toResponse.end document.content
+    else # hand out one attachment
+      if Object.keys document._attachments .length != 1
+        # not exactly attachment available
+        toResponse.writeHead 404
+        toResponse.end!
+        return;
+      
+      # request the attachement
+      attachmentName = (Object.keys documents._attachments)[0]
+      url = "#{couchdb}#{doc_id}/#{attachmentName}"
+      console.log "send: request couchdb for attachment: #{url}"
+      (error, response, body) <- request {uri: url, encoding: null}
+      if error # could not get attachment
+        toResponse.writeHead 500
+        toResponse.end!
+      else if response.statusCode is not 200 # could not find attachment
+        toResponse.writeHead response.statusCode
+        toResponse.end!
+      else
+        if document.type
+          # use type given in type-field in document
+          toResponse.writeHead 200, 'Content-Type': document.type 
         else
-          content += constructCategoryBox body
-          content += constructArticleBody body
+          # use type given as the attachments mime type
+          toResponse.writeHead 200, 'Content-Type': document._attachments[attachmentName].type
         
-        data =
-          'title': body.title
-          'content': content
-        
-        response.writeHead 200, 'Content-Type':'text/html'
-        response.end constructStndPage data, extra.style
-      else # doc found, but no article
-        if body.content
-          response.writeHead 200, 'Content-Type':body.type
-          response.end body.content
-        else if Object.keys body._attachments .length > 0
-          # request an / the attachement
-          url = "#{couchdb}#{doc_id}/#{(Object.keys body._attachments)[0]}"
-          console.log "send: request couchdb for attachment: #{url}"
-          request {uri: url, encoding: null}, (error, resp, body2) ->
-            if error
-              request.writeHead 500
-              request.end!
-            else if resp.statusCode is not 200
-              response.writeHead resp.statusCode
-              response.end!
-            else
-              response.writeHead 200, 'Content-Type': body.type
-              response.end body2
-        else
-          response.writeHead 404
-          response.end!
+        toResponse.end body
+
+
+constructPreBox = (styleClass, text) ->
+  """
+<pre class="#{styleClass}">
+#{text}
+</pre>
+  """
+
+constructArticleBody = (doc) ->
+  """
+      <div class="content">
+#{doc.html}
+      </div>
+
+  """
+
+constructArticleBodyEdit = (doc) ->
+  """
+<div class="content">
+  <form action='?' method='POST' accept-charset='utf-8'>
+    <textarea name='input' cols='80' rows = '25'>#{doc.markup}</textarea>
+    <input type='submit' value='Fertig'>
+  </form>
+</div>
+
+  """
+  
+constructCategoryBox = (doc) ->
+  """
+<div class="categories">
+  TODO
+  
+  <div class="dateInfoBox">
+    <a class="button" href="./#{doc._id}?action=edit">EDIT</a>
+  </div>
+</div>
+
+  """
 
 # data = {title:'...', content:'...'}
 constructStndPage = (data, style) ->
@@ -85,43 +143,8 @@ constructStndPage = (data, style) ->
   
   return header+data.content+footer
 
-constructArticleBody = (doc) ->
-  """
-      <div class="content">
-#{doc.html}
-      </div>
-
-  """
-
-constructArticleBodyEdit = (doc) ->
-  """
-<div class="content">
-  <form action='?' method='POST' accept-charset='utf-8'>
-    <textarea name='input' cols='80' rows = '25'>#{doc.markup}</textarea>
-    <input type='submit' value='Fertig'>
-  </form>
-</div>
-
-  """
-
-constructCategoryBox = (doc) ->
-  """
-<div class="categories">
-  TODO
-  
-  <div class="dateInfoBox">
-    <a class="button" href="./#{doc._id}?action=edit">EDIT</a>
-  </div>
-</div>
-
-  """
-
-constructPreBox = (styleClass, text) ->
-  """
-<pre class="#{styleClass}">
-#{text}
-</pre>
-  """
+####################################################
+####################################################
 
 module.exports = construct
 

@@ -3,73 +3,88 @@
   request = require('request');
   config = null;
   couchdb = null;
-  construct = function(doc_id, response, extra){
+  construct = function(doc_id, toResponse, extra){
     var url;
     url = couchdb + "" + doc_id;
     console.log("send: request couchdb: " + url);
-    return request(url, function(error, resp, body){
-      var content, data, url;
+    return request(url, function(error, response, body){
+      var document, content, data, attachmentName, url;
       if (error) {
         console.log(JSON.stringify(error));
-        response.writeHead(500);
-        return response.end();
-      } else if (resp.statusCode !== 200) {
-        response.writeHead(resp.statusCode);
-        return response.end();
-      } else {
-        body = JSON.parse(body);
-        if (body.title) {
-          content = '';
-          if (extra.error) {
-            content += constructPreBox('errorbox', extra.error);
-          }
-          if (extra.info) {
-            content += constructPreBox('infobox', extra.info);
-          }
-          if (extra.edit) {
-            content += constructArticleBodyEdit(body);
-          } else {
-            content += constructCategoryBox(body);
-            content += constructArticleBody(body);
-          }
-          data = {
-            'title': body.title,
-            'content': content
-          };
-          response.writeHead(200, {
-            'Content-Type': 'text/html'
-          });
-          return response.end(constructStndPage(data, extra.style));
+        toResponse.writeHead(404);
+        toResponse.end();
+        return;
+      }
+      if (response.statusCode !== 200) {
+        toResponse.writeHead(response.statusCode);
+        toResponse.end();
+        return;
+      }
+      document = JSON.parse(body);
+      if (document.title) {
+        console.log("normal article: " + document.title);
+        content = '';
+        if (extra.error) {
+          content += constructPreBox('errorbox', extra.error);
+        }
+        if (extra.info) {
+          content += constructPreBox('infobox', extra.info);
+        }
+        if (extra.ok) {
+          content += constructPreBox('okbox', extra.ok);
+        }
+        if (extra.edit) {
+          content += constructArticleBodyEdit(document);
         } else {
-          if (body.content) {
-            response.writeHead(200, {
-              'Content-Type': body.type
-            });
-            return response.end(body.content);
-          } else if (Object.keys(body._attachments).length > 0) {
-            url = couchdb + "" + doc_id + "/" + Object.keys(body._attachments)[0];
-            console.log("send: request couchdb for attachment: " + url);
-            return request({
-              uri: url,
-              encoding: null
-            }, function(error, resp, body2){
-              if (error) {
-                request.writeHead(500);
-                return request.end();
-              } else if (resp.statusCode !== 200) {
-                response.writeHead(resp.statusCode);
-                return response.end();
-              } else {
-                response.writeHead(200, {
-                  'Content-Type': body.type
-                });
-                return response.end(body2);
-              }
-            });
-          } else {
-            response.writeHead(404);
-            return response.end();
+          content += constructCategoryBox(document);
+          content += constructArticleBody(document);
+        }
+        data = {
+          'title': document.title,
+          'content': content
+        };
+        toResponse.writeHead(200, {
+          'Content-Type': 'text/html'
+        });
+        return toResponse.end(constructStndPage(data, extra.style));
+      } else {
+        if (document.content) {
+          toResponse.writeHead(200, {
+            'Content-Type': document.type
+          });
+          return toResponse.end(document.content);
+        } else {
+          if (Object.keys(document._attachments).length != 1) {
+            toResponse.writeHead(404);
+            toResponse.end();
+            return;
           }
+          attachmentName = Object.keys(documents._attachments)[0];
+          url = couchdb + "" + doc_id + "/" + attachmentName;
+          console.log("send: request couchdb for attachment: " + url);
+          return request({
+            uri: url,
+            encoding: null
+          }, function(error, response, body){
+            if (error) {
+              toResponse.writeHead(500);
+              return toResponse.end();
+            } else if (response.statusCode !== 200) {
+              toResponse.writeHead(response.statusCode);
+              return toResponse.end();
+            } else {
+              if (document.type) {
+                toResponse.writeHead(200, {
+                  'Content-Type': document.type
+                });
+              } else {
+                toResponse.writeHead(200, {
+                  'Content-Type': document._attachments[attachmentName].type
+                });
+              }
+              return toResponse.end(body);
+            }
+          });
         }
       }
     });
