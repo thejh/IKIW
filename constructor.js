@@ -1,5 +1,5 @@
 (function(){
-  var request, config, couchdb, idTitleMap, subcategoryMap, construct, constructPreBox, constructArticleBody, constructArticleBodyEdit, constructCategoryBox, constructStndPage;
+  var request, config, couchdb, idTitleMap, subcategoryMap, construct, constructPreBox, constructArticleBody, constructArticleBodyEdit, constructCategoryBox, constructStndPage, _resolveCategoryName;
   request = require('request');
   config = null;
   couchdb = null;
@@ -106,18 +106,45 @@
     return "<div class=\"content\">\n  <form action='?' method='POST' accept-charset='utf-8'>\n    <textarea name='input' cols='80' rows = '25'>" + doc.markup + "</textarea>\n    <input type='submit' value='Fertig'>\n  </form>\n</div>\n";
   };
   constructCategoryBox = function(doc, callback){
-    var categories, subcategories;
+    var categories, catText, category, cat, subcategories, subcatText, _i, _len;
     categories = doc.categories;
-    if (!categories) {
-      categories = [];
-    } else if (categories.length !== 0) {}
-    subcategories = doc.subcategories;
-    if (!subcategories) {
-      subcategories = [];
-    } else if (subcategories.length !== 0) {}
+    catText = '';
+    if (categories) {
+      for (_i = 0, _len = categories.length; _i < _len; ++_i) {
+        category = categories[_i];
+        cat = _resolveCategoryName(category);
+        if (cat) {
+          catText += "&nbsp;&nbsp;&nbsp;&nbsp;<a class='categoryLink' href='./" + category + "'>" + cat + "</a> ";
+        } else {
+          catText += "&nbsp;&nbsp;&nbsp;&nbsp;<a class='brokenCategoryLink' href='./" + category + "'>" + category + "</a> ";
+        }
+      }
+    }
+    subcategories = subcategoryMap[doc._id];
+    subcatText = '';
+    if (subcategories) {
+      for (_i = 0, _len = subcategories.length; _i < _len; ++_i) {
+        category = subcategories[_i];
+        cat = _resolveCategoryName(category);
+        if (cat) {
+          subcatText += "&nbsp;&nbsp;&nbsp;&nbsp;<a class='subcategoryLink' href='./" + category + "'>" + cat + "</a> ";
+        } else {
+          subcatText += "&nbsp;&nbsp;&nbsp;&nbsp;<a class='brokenSubategoryLink' href='./" + category + "'>" + category + "</a> ";
+        }
+      }
+    }
     return callback({
-      ok: "<div class=\"categories\">\n  <p class=\"categories\">\n    " + categories + "\n  </p>\n  <p class=\"category\">" + doc.title + "</p>\n  <p class=\"subcategories\">\n    " + subcategories + "\n  </p>\n  \n  <div class=\"dateInfoBox\">\n    <a class=\"button\" href=\"./" + doc._id + "?action=edit\">EDIT CONTENT</a><br>\n    <a class=\"button\" href=\"./" + doc._id + "?action=categories\">EDIT CATEGORIES</a>\n  </div>\n</div>\n"
+      ok: "<div class=\"categories\">\n  <p class=\"categories\">\n    " + catText + "\n  </p>\n  <p class=\"category\">" + doc.title + "</p>\n  <p class=\"subcategories\">\n    " + subcatText + "\n  </p>\n  \n  <div class=\"dateInfoBox\">\n    <a class=\"button\" href=\"./" + doc._id + "?action=edit\">EDIT CONTENT</a><br>\n    <a class=\"button\" href=\"./" + doc._id + "?action=categories\">EDIT CATEGORIES</a>\n  </div>\n</div>\n"
     });
+  };
+  _resolveCategoryName = function(category){
+    var cat, _i, _ref, _len;
+    for (_i = 0, _len = (_ref = idTitleMap).length; _i < _len; ++_i) {
+      cat = _ref[_i];
+      if (cat.id === category) {
+        return cat.value;
+      }
+    }
   };
   constructStndPage = function(data, style){
     var header, footer;
@@ -132,7 +159,6 @@
   };
   construct.refreshIDTitleMap = function(callback){
     return request(couchdb + "_design/blink/_view/id_title_map", function(error, resp, body){
-      var idTitleMap;
       if (error) {
         callback(error);
         return;
@@ -149,7 +175,6 @@
   };
   construct.refreshSubcategoryMap = function(callback){
     return request(couchdb + "_design/blink/_view/subcategories", function(error, resp, body){
-      var subcategoryMap;
       if (error) {
         callback(error);
         return;

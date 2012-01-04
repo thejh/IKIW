@@ -108,27 +108,30 @@ constructArticleBodyEdit = (doc) ->
   """
   
 constructCategoryBox = (doc, callback) ->
-  
-  
   categories = doc.categories
-  if not categories then categories = []
-  else if categories.length !== 0
-    
-    ;#TODO
+  catText = ''
+  if categories
+    for category of categories
+      cat = _resolveCategoryName category
+      if cat then catText += "&nbsp;&nbsp;&nbsp;&nbsp;<a class='categoryLink' href='./#{category}'>#{cat}</a> "
+      else catText += "&nbsp;&nbsp;&nbsp;&nbsp;<a class='brokenCategoryLink' href='./#{category}'>#{category}</a> "
   
-  subcategories = doc.subcategories
-  if not subcategories then subcategories = []
-  else if subcategories.length !== 0
-    ;#TODO
+  subcategories = subcategoryMap[doc._id]
+  subcatText = ''
+  if subcategories
+    for category of subcategories
+      cat = _resolveCategoryName category
+      if cat then subcatText += "&nbsp;&nbsp;&nbsp;&nbsp;<a class='subcategoryLink' href='./#{category}'>#{cat}</a> "
+      else subcatText += "&nbsp;&nbsp;&nbsp;&nbsp;<a class='brokenSubategoryLink' href='./#{category}'>#{category}</a> "
   
   callback ok: """
 <div class="categories">
   <p class="categories">
-    #{categories}
+    #{catText}
   </p>
   <p class="category">#{doc.title}</p>
   <p class="subcategories">
-    #{subcategories}
+    #{subcatText}
   </p>
   
   <div class="dateInfoBox">
@@ -138,6 +141,12 @@ constructCategoryBox = (doc, callback) ->
 </div>
 
     """
+
+_resolveCategoryName = (category) ->
+  for cat of idTitleMap
+    if cat.id is category
+      return cat.value
+  
 
 # data = {title:'...', content:'...'}
 constructStndPage = (data, style) ->
@@ -188,7 +197,7 @@ construct.refreshIDTitleMap = (callback) ->
     return;
   
   resp = JSON.parse body
-  idTitleMap = resp.rows
+  idTitleMap := resp.rows
   
   console.log JSON.stringify idTitleMap
   
@@ -205,7 +214,7 @@ construct.refreshSubcategoryMap = (callback) ->
     return;
   
   resp = JSON.parse body
-  subcategoryMap = resp.rows[0].value
+  subcategoryMap := resp.rows[0].value
   
   console.log JSON.stringify subcategoryMap
   
