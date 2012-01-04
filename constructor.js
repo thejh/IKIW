@@ -24,7 +24,6 @@
       }
       document = JSON.parse(body);
       if (document.title) {
-        console.log("normal article: " + document.title);
         content = '';
         if (extra.error) {
           content += constructPreBox('errorbox', extra.error);
@@ -37,7 +36,10 @@
         }
         return constructCategoryBox(document, function(categoryBox){
           var data;
-          content += categoryBox;
+          if (categoryBox.error) {
+            content += construcPreBox('errorbox', categoryBox.error);
+          }
+          content += categoryBox.ok;
           if (extra.edit) {
             content += constructArticleBodyEdit(document);
           } else {
@@ -64,7 +66,7 @@
             toResponse.end();
             return;
           }
-          attachmentName = Object.keys(documents._attachments)[0];
+          attachmentName = Object.keys(document._attachments)[0];
           url = couchdb + "" + doc_id + "/" + attachmentName;
           console.log("send: request couchdb for attachment: " + url);
           return request({
@@ -114,7 +116,7 @@
       subcategories = [];
     } else if (subcategories.length !== 0) {}
     return callback({
-      ok: "<div class=\"categories\">\n  <p class=\"categories\">\n    " + categories + "\n  </p>\n  <p class=\"category\">" + doc.title + "</p>\n  <p class=\"subcategories\">\n    " + subcategories + "\n  </p>\n  \n  <div class=\"dateInfoBox\">\n    <a class=\"button\" href=\"./" + doc._id + "?action=edit\">EDIT</a>\n  </div>\n</div>\n"
+      ok: "<div class=\"categories\">\n  <p class=\"categories\">\n    " + categories + "\n  </p>\n  <p class=\"category\">" + doc.title + "</p>\n  <p class=\"subcategories\">\n    " + subcategories + "\n  </p>\n  \n  <div class=\"dateInfoBox\">\n    <a class=\"button\" href=\"./" + doc._id + "?action=edit\">EDIT CONTENT</a><br>\n    <a class=\"button\" href=\"./" + doc._id + "?action=categories\">EDIT CATEGORIES</a>\n  </div>\n</div>\n"
     });
   };
   constructStndPage = function(data, style){

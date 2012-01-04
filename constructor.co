@@ -26,7 +26,6 @@ construct = (doc_id, toResponse, extra) ->
   
   document = JSON.parse body # document found
   if document.title # document is normal article
-    console.log "normal article: #{document.title}"
     content = ''
     
     # boxes from prev runs in the beginning
@@ -37,11 +36,13 @@ construct = (doc_id, toResponse, extra) ->
     # "real content"
     # category box
     (categoryBox) <- constructCategoryBox document
-    content += categoryBox
+    if categoryBox.error
+      content += construcPreBox \errorbox, categoryBox.error
+    content += categoryBox.ok
     # content
     if extra.edit then content += constructArticleBodyEdit document
     else content += constructArticleBody document
-      
+    
     data =
       'title': document.title
       'content': content
@@ -60,7 +61,7 @@ construct = (doc_id, toResponse, extra) ->
         return;
       
       # request the attachement
-      attachmentName = (Object.keys documents._attachments)[0]
+      attachmentName = (Object.keys document._attachments)[0]
       url = "#{couchdb}#{doc_id}/#{attachmentName}"
       console.log "send: request couchdb for attachment: #{url}"
       (error, response, body) <- request {uri: url, encoding: null}
@@ -131,7 +132,8 @@ constructCategoryBox = (doc, callback) ->
   </p>
   
   <div class="dateInfoBox">
-    <a class="button" href="./#{doc._id}?action=edit">EDIT</a>
+    <a class="button" href="./#{doc._id}?action=edit">EDIT CONTENT</a><br>
+    <a class="button" href="./#{doc._id}?action=categories">EDIT CATEGORIES</a>
   </div>
 </div>
 
