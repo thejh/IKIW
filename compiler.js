@@ -1,34 +1,24 @@
 (function(){
-  var request, config, couchdb, compile, parseBlocks, extractOneLiners, deleteEmptyBlocks, parseLists, parseParagraphs, generateBlocks, generateList, generateSubList, generateMath, generateQuote, _parseList, _parseParagraph, __closeAllElements, __getParam, _delChars, _peek;
+  var request, config, couchdb, compile, parse, parseBlocks, extractOneLiners, deleteEmptyBlocks, parseLists, parseParagraphs, generateBlocks, generateList, generateSubList, generateMath, generateQuote, _parseList, _parseParagraph, __closeAllElements, __getParam, _delChars, _peek;
   request = require('request');
   config = null;
   couchdb = null;
   compile = function(doc_id, newMarkup, onFinish){
-    var result, tree, error, res, url;
+    var result, tree, res, url;
     console.log("compiling '" + doc_id + "'");
     result = {};
     tree = [];
     try {
       newMarkup = newMarkup.replace(/\r/g, '');
-      error = parseBlocks(tree, newMarkup);
-      if (error) {
-        result.error = "ERROR while parsing blocks:\n" + error;
-        result.info = "blocks parsed yet:\n\n" + JSON.stringify(tree);
+      res = parse(newMarkup);
+      if (res.error || !res.tree) {
+        result.error = "<strong>ERROR while parsing blocks:</strong>\n" + res.error;
+        if (res.tree) {
+          result.info = "\n<strong>tree parse so far:</strong>\n" + JSON.stringify(tree);
+        }
         return onFinish(result);
       }
-      extractOneLiners(tree);
-      deleteEmptyBlocks(tree);
-      error = parseLists(tree);
-      if (error) {
-        result.error = "ERROR while parsing lists:\n" + error;
-        result.info = "tree so far:\n\n" + JSON.stringify(tree);
-        return onFinish(result);
-      }
-      if (error) {
-        result.error = "ERROR while parsing paragraphs:\n" + error;
-        result.info = "tree so far:\n\n" + JSON.stringify(tree);
-        return onFinish(result);
-      }
+      tree = res.tree;
       result.info = JSON.stringify(tree);
       res = generateBlocks(tree);
       if (res.error) {
@@ -71,7 +61,36 @@
       return onFinish(result);
     }
   };
-  parseBlocks = function(result, text){
+  parse = function(input){
+    var tree, error;
+    tree = [];
+    error = parseBlocks(tree, input);
+    if (error) {
+      return {
+        error: "while parsing blocks:\n" + error,
+        tree: tree
+      };
+    }
+    extractOneLiners(tree);
+    deleteEmptyBlocks(tree);
+    error = parseLists(tree);
+    if (error) {
+      return {
+        error: "while parsing lists:\n" + error,
+        tree: tree
+      };
+    }
+    if (error) {
+      return {
+        error: "while parsing paragraphs:\n" + error,
+        tree: tree
+      };
+    }
+    return {
+      tree: tree
+    };
+  };
+  parseBlocks = function(tree, text){
     var type, regex, index, match, mayEscaped, newType, input;
     type = null;
     while (text && text.length > 0) {
@@ -96,7 +115,7 @@
             mayEscaped = false;
           }
           if (index != 0) {
-            result.push({
+            tree.push({
               'type': 'par',
               'input': text.substr(0, index + mayEscaped)
             });
@@ -104,7 +123,7 @@
           text = text.substr(index + match.length);
           type = newType;
         } else {
-          result.push({
+          tree.push({
             'type': 'par',
             'input': text
           });
@@ -135,9 +154,9 @@
         } else if (type === 'quote') {
           input = input.replace(/\\<<</g, '<<<');
         }
-        result.push({
-          'type': type,
-          'input': input
+        tree.push({
+          type: type,
+          input: input
         });
         text = text.substr(index + 4);
         type = null;

@@ -9,31 +9,15 @@ compile = (doc_id, newMarkup, onFinish) ->
   tree = []
   
   try
-    
-    ###################
-    #### compile markup
     newMarkup = newMarkup.replace /\r/g, '' # delete windows chars
-    error = parseBlocks tree, newMarkup
-    if error
-      result.error = "ERROR while parsing blocks:\n#{error}"
-      result.info = "blocks parsed yet:\n\n#{JSON.stringify tree}"
+    
+    res = parse newMarkup
+    if res.error || not res.tree
+      result.error = "<strong>ERROR while parsing blocks:</strong>\n#{res.error}"
+      if res.tree then result.info = "\n<strong>tree parse so far:</strong>\n#{JSON.stringify tree}"
       return onFinish result
     
-    extractOneLiners tree # extract commands, headlines and defines
-    deleteEmptyBlocks tree # delete blocks that contained only one-liners
-    
-    error = parseLists tree # identify and parse lists
-    if error
-      result.error = "ERROR while parsing lists:\n#{error}"
-      result.info = "tree so far:\n\n#{JSON.stringify tree}"
-      return onFinish result
-    
-    #error parseParagraphs tree #TODO
-    if error
-      result.error = "ERROR while parsing paragraphs:\n#{error}"
-      result.info = "tree so far:\n\n#{JSON.stringify tree}"
-      return onFinish result
-    
+    tree = res.tree
     result.info = JSON.stringify tree
     
     ##################
@@ -70,9 +54,31 @@ compile = (doc_id, newMarkup, onFinish) ->
     onFinish result
 
 ################################################################################
+################################################################################
 ## parse
 
-parseBlocks = (result, text) ->
+# main parse method returns
+# {tree: (parse tree so far)[, error: (description of an error)]}
+parse = (input) ->
+  tree = []
+  error = parseBlocks tree, input
+  if error
+    return error: "while parsing blocks:\n#{error}", tree: tree
+  
+  extractOneLiners tree # extract commands, headlines and defines
+  deleteEmptyBlocks tree # delete blocks that contained only one-liners
+  
+  error = parseLists tree # identify and parse lists
+  if error
+    return error: "while parsing lists:\n#{error}", tree: tree
+  
+  if error
+    return error: "while parsing paragraphs:\n#{error}", tree: tree
+  
+  return tree: tree
+
+# parses the blocks, priority: 1 code, 2 math, 3 blockquote
+parseBlocks = (tree, text) ->
   type = null
   while text and text.length > 0
     if type is null
@@ -93,17 +99,17 @@ parseBlocks = (result, text) ->
         else mayEscaped = false
         
         if index != 0 # space between last closing symbol and `index`
-          result.push {
-            \type : \par
-            \input : text.substr 0, index+mayEscaped
+          tree.push {
+            type : \par
+            input : text.substr 0, index+mayEscaped
           }
         
         text = text.substr index+match.length # remaining text
         type = newType
       else
-        result.push {
-          \type : \par
-          \input : text
+        tree.push {
+          type : \par
+          input : text
         }
         text = null
     else
@@ -124,9 +130,9 @@ parseBlocks = (result, text) ->
       else if type is \math then input = input.replace /\\\$\$\$/g '$$$'
       else if type is \quote then input = input.replace /\\<<</g '<<<'
       
-      result.push {
-        \type : type
-        \input : input
+      tree.push {
+        type: type
+        input: input
       }
       
       text = text.substr index+4 # remaining text
