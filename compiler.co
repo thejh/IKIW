@@ -5,20 +5,20 @@ couchdb = null
 
 compile = (doc_id, newMarkup, onFinish) ->
   console.log "compiling '#{doc_id}'"
+  result = {}
+  tree = []
   
   try
-    result = {}
-    tree = []
     
+    ###################
+    #### compile markup
     newMarkup = newMarkup.replace /\r/g, '' # delete windows chars
     error = parseBlocks tree, newMarkup
     if error
       result.error = "ERROR while parsing blocks:\n#{error}"
       result.info = "blocks parsed yet:\n\n#{JSON.stringify tree}"
-      
-      onFinish result
-      return result
-  
+      return onFinish result
+    
     extractOneLiners tree # extract commands, headlines and defines
     deleteEmptyBlocks tree # delete blocks that contained only one-liners
     
@@ -26,53 +26,48 @@ compile = (doc_id, newMarkup, onFinish) ->
     if error
       result.error = "ERROR while parsing lists:\n#{error}"
       result.info = "tree so far:\n\n#{JSON.stringify tree}"
-      
-      onFinish result
-      return result
+      return onFinish result
     
     #error parseParagraphs tree #TODO
     if error
       result.error = "ERROR while parsing paragraphs:\n#{error}"
       result.info = "tree so far:\n\n#{JSON.stringify tree}"
-      
-      onFinish result
-      return result
-  
+      return onFinish result
+    
     result.info = JSON.stringify tree
     
-    resulthtml = generateBlocks tree
-    if not resulthtml
-      result.err
+    ##################
+    #### generate html
+    res = generateBlocks tree
+    if res.error
+      result.error = "ERROR while generating HTML\n#{res.error}"
+      return onFinish result
     
-    result.info = resulthtml
-    
+    ################
+    #### save result
     url = "#{couchdb}#{doc_id}"
-    request url, (error, resp, body) ->
+    (error, resp, body) <- request url
+    if error
+      result.error = "Couldn't get Document.\nDescription:\n#{JSON.stringify(error)}"
+      return onFinish result
+    else if resp.statusCode is not 200
+      result.error = "Couldn't get Document.\nResponse status code from DB: #{resp.statusCode}"
+      onFinish result
+    else # doc found
+      document = JSON.parse body
+      document.markup = newMarkup
+      document.html = res.html
+      (error, resp, body) <- request { method: \PUT, url: url, multipart: [{'content-type': 'application/json', body: JSON.stringify document}]}
       if error
-        result.error = "Couldn't get Document.\nDescription:\n#{JSON.stringify(error)}"
-        onFinish result
-        return result
-      else if resp.statusCode is not 200
-        result.error = "Couldn't get Document.\nResponse status code from DB: #{resp.statusCode}"
-        onFinish result
-        return result
-      else # doc found
-        document = JSON.parse body
-        document.html = resulthtml
-        request { method: \PUT, url: url, multipart: [{'content-type': 'application/json', body: JSON.stringify document}]}, (error, resp, body) ->
-          if error
-            result.error = "Couldn't save Document.\nDescription:\n#{JSON.stringify(error)}"
-            onFinish result
-            return result
-          else
-            result.info = "DB response status code: #{resp.statusCode}"
-            onFinish result
-            return result
+        result.error = "Couldn't save Document.\nDescription:\n#{JSON.stringify(error)}"
+        return onFinish result
+      else
+        result.ok = "Document compiled.\nDocument saved: DB response status code: #{resp.statusCode}"
+        return onFinish result
   
-  #catch (error)
-  #  result.error = error
-  #  onFinish result
-  #  return result
+  catch error
+    result.error = error
+    onFinish result
 
 ################################################################################
 ## parse
@@ -343,7 +338,7 @@ generateBlocks = (tree) ->
     else if block.type is \quote
       resulttext += generateQuote block
   
-  return resulttext
+  return html: resulttext
 
 generateList = (block) ->
   if block.type is \orderedlist

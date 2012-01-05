@@ -4,18 +4,17 @@
   config = null;
   couchdb = null;
   compile = function(doc_id, newMarkup, onFinish){
-    var result, tree, error, resulthtml, url;
+    var result, tree, error, res, url;
     console.log("compiling '" + doc_id + "'");
+    result = {};
+    tree = [];
     try {
-      result = {};
-      tree = [];
       newMarkup = newMarkup.replace(/\r/g, '');
       error = parseBlocks(tree, newMarkup);
       if (error) {
         result.error = "ERROR while parsing blocks:\n" + error;
         result.info = "blocks parsed yet:\n\n" + JSON.stringify(tree);
-        onFinish(result);
-        return result;
+        return onFinish(result);
       }
       extractOneLiners(tree);
       deleteEmptyBlocks(tree);
@@ -23,35 +22,32 @@
       if (error) {
         result.error = "ERROR while parsing lists:\n" + error;
         result.info = "tree so far:\n\n" + JSON.stringify(tree);
-        onFinish(result);
-        return result;
+        return onFinish(result);
       }
       if (error) {
         result.error = "ERROR while parsing paragraphs:\n" + error;
         result.info = "tree so far:\n\n" + JSON.stringify(tree);
-        onFinish(result);
-        return result;
+        return onFinish(result);
       }
       result.info = JSON.stringify(tree);
-      resulthtml = generateBlocks(tree);
-      if (!resulthtml) {
-        result.err;
+      res = generateBlocks(tree);
+      if (res.error) {
+        result.error = "ERROR while generating HTML\n" + res.error;
+        return onFinish(result);
       }
-      result.info = resulthtml;
       url = couchdb + "" + doc_id;
       return request(url, function(error, resp, body){
         var document;
         if (error) {
           result.error = "Couldn't get Document.\nDescription:\n" + JSON.stringify(error);
-          onFinish(result);
-          return result;
+          return onFinish(result);
         } else if (resp.statusCode !== 200) {
           result.error = "Couldn't get Document.\nResponse status code from DB: " + resp.statusCode;
-          onFinish(result);
-          return result;
+          return onFinish(result);
         } else {
           document = JSON.parse(body);
-          document.html = resulthtml;
+          document.markup = newMarkup;
+          document.html = res.html;
           return request({
             method: 'PUT',
             url: url,
@@ -62,17 +58,18 @@
           }, function(error, resp, body){
             if (error) {
               result.error = "Couldn't save Document.\nDescription:\n" + JSON.stringify(error);
-              onFinish(result);
-              return result;
+              return onFinish(result);
             } else {
-              result.info = "DB response status code: " + resp.statusCode;
-              onFinish(result);
-              return result;
+              result.ok = "Document compiled.\nDocument saved: DB response status code: " + resp.statusCode;
+              return onFinish(result);
             }
           });
         }
       });
-    } catch (_e) {}
+    } catch (error) {
+      result.error = error;
+      return onFinish(result);
+    }
   };
   parseBlocks = function(result, text){
     var type, regex, index, match, mayEscaped, newType, input;
@@ -377,7 +374,9 @@
         resulttext += generateQuote(block);
       }
     }
-    return resulttext;
+    return {
+      html: resulttext
+    };
   };
   generateList = function(block){
     var res, subItem, _i, _ref, _len;

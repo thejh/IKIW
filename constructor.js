@@ -169,7 +169,6 @@
       }
       resp = JSON.parse(body);
       idTitleMap = resp.rows;
-      console.log(JSON.stringify(idTitleMap));
       return callback();
     });
   };
@@ -185,7 +184,6 @@
       }
       resp = JSON.parse(body);
       subcategoryMap = resp.rows[0].value;
-      console.log(JSON.stringify(subcategoryMap));
       return callback();
     });
   };
