@@ -4,7 +4,7 @@ config = null
 couchdb = null
 
 compile = (doc_id, newMarkup, onFinish) ->
-  console.log "compiling '#{doc_id}'"
+  console.log "compiling '#doc_id'"
   result = {}
   tree = []
   
@@ -12,7 +12,7 @@ compile = (doc_id, newMarkup, onFinish) ->
     newMarkup = newMarkup.replace /\r/g, '' # delete windows chars
     
     res = parse newMarkup
-    if res.error || not res.tree
+    if res.error or not res.tree
       result.error = "<strong>ERROR while parsing blocks:</strong>\n#{res.error}"
       if res.tree then result.info = "\n<strong>tree parse so far:</strong>\n#{JSON.stringify tree}"
       return onFinish result
@@ -34,20 +34,19 @@ compile = (doc_id, newMarkup, onFinish) ->
     if error
       result.error = "Couldn't get Document.\nDescription:\n#{JSON.stringify(error)}"
       return onFinish result
-    else if resp.statusCode is not 200
+    if resp.statusCode is not 200
       result.error = "Couldn't get Document.\nResponse status code from DB: #{resp.statusCode}"
-      onFinish result
-    else # doc found
-      document = JSON.parse body
-      document.markup = newMarkup
-      document.html = res.html
-      (error, resp, body) <- request { method: \PUT, url: url, multipart: [{'content-type': 'application/json', body: JSON.stringify document}]}
-      if error
-        result.error = "Couldn't save Document.\nDescription:\n#{JSON.stringify(error)}"
-        return onFinish result
-      else
-        result.ok = "Document compiled.\nDocument saved: DB response status code: #{resp.statusCode}"
-        return onFinish result
+      return onFinish result
+    # doc found
+    document = JSON.parse body
+    document.markup = newMarkup
+    document.html = res.html
+    (error, resp, body) <- request method: \PUT, url: url, multipart: [{\content-type : \application/json, body: JSON.stringify document}]
+    if error
+      result.error = "Couldn't save Document.\nDescription:\n#{JSON.stringify error}"
+      return onFinish result
+    result.ok = "Document compiled.\nDocument saved: DB response status code: #{resp.statusCode}"
+    return onFinish result
   
   catch error
     result.error = error
@@ -83,33 +82,41 @@ parseBlocks = (tree, text) ->
   while text and text.length > 0
     if type is null
       # no block open
-      regex = /(\n\n+)|([^\\]```)|(^```)|([^\\]\$\$\$)|(^\$\$\$)|([^\\]>>>)|(^>>>)/
+      regex = // (\n\n+)
+               | ([^\\]```)
+               | (^```)
+               | ([^\\]\$\$\$)
+               | (^\$\$\$)
+               | ([^\\]>>>)
+               | (^>>>)          //
       index = text.search regex
       match = text.match regex
       
-      if index != -1
-        if match is null then return "RegExp found and not found ?!\n#{text}"
+      if index is not -1
+        if match is null then return "RegExp found and not found ?!\n#text"
         
-        match = match[0] # select first occurrence
+        match = match.0 # select first occurrence
         mayEscaped = true
-        newType = null
-        if match[1] is '`' then newType = \code
-        else if match[1] is '$' then newType = \math
-        else if match[1] is '>' then newType = \quote
-        else mayEscaped = false
+        newType = switch match.1
+        case \` then \code
+        case \$ then \math
+        case \> then \quote
+        default
+          mayEscaped = false
+          null
         
-        if index != 0 # space between last closing symbol and `index`
+        if index is not 0 # space between last closing symbol and `index`
           tree.push {
-            type : \par
-            input : text.substr 0, index+mayEscaped
+            type: \par
+            input: text.substr 0, index+mayEscaped
           }
         
         text = text.substr index+match.length # remaining text
         type = newType
       else
         tree.push {
-          type : \par
-          input : text
+          type: \par
+          input: text
         }
         text = null
     else
@@ -148,30 +155,25 @@ extractOneLiners = (tree) ->
     for line of block.input.split /\n/g
       match = line.match /(^=+)|(^@)|(^\\)/
       if match # found
-        match = match[0] # select first occurrence
-        if match[0] is '='
+        match = match.0 # select first occurrence
+        tree.splice blockIndex, 0, switch match.0
+        case \=
           # headline
-          tree.splice blockIndex, 0, {
-            \type : \headline
-            \depth : match.length
-            \input : line.substr match.length
-          }
-        else if match[0] is '@'
+          type: \headline
+          depth: match.length
+          input: line.substr match.length
+        case \@
           # definition for bibliography or link-shorthand
-          tree.splice blockIndex, 0, {
-            \type : \define
-            \input : line
-          }
-        else
+          type: \define
+          input: line
+        default
           # definition for bibliography or link-shorthand
-          tree.splice blockIndex, 0, {
-            \type : \command
-            \input : line.substr 1
-          }
+          type: \command
+          input: line.substr 1
         
         blockIndex ++
       else
-        remainingText += line+'\n'
+        remainingText += line+\\n
     
     block.input = remainingText
     blockIndex ++
@@ -180,34 +182,32 @@ extractOneLiners = (tree) ->
 
 deleteEmptyBlocks = (tree) ->
   for index from tree.length-1 to 0 by -1
-    if not tree[index].input or tree[index].input.length is 0
+    if not tree[index]input or tree[index]input.length is 0
       tree.splice index, 1
   return void
 
 parseLists = (tree) ->
   for block, blockIndex of tree
-    if block.type !== \par then continue
+    if block.type is not \par then continue
     
     match = block.input.match /^\s*-[^-]/
     if match
       block.type = \unorderedlist
       error = _parseList block, block.input, blockIndex
       if error then return error
-    else
-      match = block.input.match /(^\s*#[^#])/
-      if match
-        block.type = \orderedlist
-        error = _parseList block, block.input, blockIndex
-        if error then return error
+    else if match = block.input.match /(^\s*#[^#])/
+      block.type = \orderedlist
+      error = _parseList block, block.input, blockIndex
+      if error then return error
   
   return void
 
-_parseList = (block, input, blockIndex) ->
+_parseList = !(block, input, blockIndex) ->
   stack = [block]
   block.items = []
   
   lines = input.split /\n/g
-  if lines.length == 0
+  if lines.length is 0
     return void
   
   item = \text : "#{lines[0].substr(lines[0].match(/(^\s*-)|(^\s*#)/)[0].length)}\n" # del list symbols
@@ -219,24 +219,25 @@ _parseList = (block, input, blockIndex) ->
     match = line.match /^\s*-+/
     if match
       type = \unorderedlist
-      depth = line.match(/-+/)[0].length
+      depth = line.match(/-+/).0.length
     else
       match = line.match /^\s*#+/
       if match
         type = \orderedlist
-        depth = line.match(/#+/)[0].length
+        depth = line.match(/#+/).0.length
       else # no \- or \# in the beginning
-        _peek stack .text += line+'\n'
+        _peek stack .text += line+\\n
         continue
     
-    line = line.substr(line.match(/(^\s*-+)|(^\s*#+)/)[0].length)+'\n' # del list symbols
+    # del list symbols
+    line = line.substr(line.match // (^\s*-+) | (^\s*#+)// .0.length)+\\n
     
     if depth is stack.length-1 # same depth as previous item
       if type is stack[stack.length-2].type
         # new item, same list
         
         stack.pop!
-        item = \text : line
+        item = text: line
         _peek stack .items.push item
         stack.push item
       else
@@ -249,7 +250,7 @@ _parseList = (block, input, blockIndex) ->
       if not peek.type then peek.type = type
       if not peek.items then peek.items = []
       
-      item = \text : line
+      item = text: line
       peek.items.push item
       stack.push item
     else if depth > stack.length
@@ -266,8 +267,6 @@ _parseList = (block, input, blockIndex) ->
       item = \text : line
       peek.items.push item
       stack.push item
-  
-  return void
 
 parseParagraphs = (tree) ->
   for block, blockIndex of tree
@@ -276,7 +275,7 @@ parseParagraphs = (tree) ->
 
 _parseParagraph = (block, blockIndex) ->
   stack = [block] # opened elements
-  block.elements = [{\text : ''}]
+  block.elements = [text: '']
   
   remainder = block.input
   while remainder.length > 0
@@ -289,10 +288,9 @@ _parseParagraph = (block, blockIndex) ->
         else _peek stack .text += remainder.substr 0, index+1 # escapable
       
       __closeAllElements stack
-      elem = {
-        \text : ''
-        \type : code
-      }
+      elem =
+        text: ''
+        type: code
         
 
 # closes all elements on the stack, except the first (the whole block)
@@ -310,23 +308,22 @@ __closeAllElements = (stack) ->
 __getParam = (text) ->
   if text.search /^\[/ !== 0
     # no parameters given
-    return {\parameter : {}, \text : text}
+    return parameter: {}, text: text
   
   text = text.substr 1, text.length
   index = text.search /(^\])|([^\\]\])/
   if index is 0
     # parameter empty or malformed
-    return {\parameter : {}, \text : text.substr match.length, text.length}
+    return parameter: {}, text: text.substr match.length, text.length
   
   param = text.substr 0, index+1
   remaining = text.substr index+2
   
   parsed = JSON.parse param
   
-  return {
-    \parameter : parsed
-    \text : remaining
-  }
+  return
+    parameter: parsed
+    text: remaining
 
 ################################################################################
 # create html
@@ -335,7 +332,7 @@ generateBlocks = (tree) ->
   resulttext = ''
   for block, blockIndex of tree
     if block.type is \par
-      resulttext += '\n'+JSON.stringify tree+'\n'
+      resulttext += \\n + JSON.stringify tree + \\n
       #TODO
     else if block.type is \orderedlist or block.type is \unorderedlist
       resulttext += generateList block

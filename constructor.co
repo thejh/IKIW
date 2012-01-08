@@ -1,4 +1,4 @@
-request = require 'request'
+request = require \request
 
 config = null
 couchdb = null
@@ -12,17 +12,15 @@ subcategoryMap = null
 construct = (doc_id, toResponse, extra) ->
   # query couchdb
   url = "#{couchdb}#{doc_id}"
-  console.log "send: request couchdb: #{url}"
+  console.log "send: request couchdb: #url"
   (error, response, body) <- request url
   if error
-    console.log JSON.stringify(error)
+    console.log JSON.stringify error
     toResponse.writeHead 404
-    toResponse.end!
-    return;
+    return toResponse.end!
   if response.statusCode !== 200
     toResponse.writeHead response.statusCode
-    toResponse.end!
-    return;
+    return toResponse.end!
   
   document = JSON.parse body # document found
   if document.title # document is normal article
@@ -44,27 +42,26 @@ construct = (doc_id, toResponse, extra) ->
     else content += constructArticleBody document
     
     data =
-      'title': document.title
-      'content': content
+      title: document.title
+      content: content
     
-    toResponse.writeHead 200, 'Content-Type': 'text/html'
+    toResponse.writeHead 200, \Content-Type : \text/html
     toResponse.end constructStndPage data, extra.style
   else # doc found, but it is not an article
     if document.content # hand out content field
-      toResponse.writeHead 200, 'Content-Type': document.type
+      toResponse.writeHead 200, \Content-Type : document.type
       toResponse.end document.content
     else # hand out one attachment
       if Object.keys document._attachments .length != 1
         # not exactly attachment available
         toResponse.writeHead 404
-        toResponse.end!
-        return;
+        return toResponse.end!
       
       # request the attachement
       attachmentName = (Object.keys document._attachments)[0]
       url = "#{couchdb}#{doc_id}/#{attachmentName}"
       console.log "send: request couchdb for attachment: #{url}"
-      (error, response, body) <- request {uri: url, encoding: null}
+      (error, response, body) <- request uri: url, encoding: null
       if error # could not get attachment
         toResponse.writeHead 500
         toResponse.end!
@@ -72,13 +69,7 @@ construct = (doc_id, toResponse, extra) ->
         toResponse.writeHead response.statusCode
         toResponse.end!
       else
-        if document.type
-          # use type given in type-field in document
-          toResponse.writeHead 200, 'Content-Type': document.type 
-        else
-          # use type given as the attachments mime type
-          toResponse.writeHead 200, 'Content-Type': document._attachments[attachmentName].type
-        
+        toResponse.writeHead 200, 'Content-Type': (document.type or document._attachments[attachmentName].type)
         toResponse.end body
 
 constructPreBox = (styleClass, text) ->
@@ -189,12 +180,9 @@ construct.setConfiguration = (configuration) ->
 # callback = (error) -> ...
 construct.refreshIDTitleMap = (callback) ->
   (error, resp, body) <- request "#{couchdb}_design/blink/_view/id_title_map"
-  if error
-    callback error
-    return;
+  return callback error if error
   if resp.statusCode !== 200
-    callback "Couldnt request id_title_map; status code: #{resp.statusCode}"
-    return;
+    return callback "Couldnt request id_title_map; status code: #{resp.statusCode}"
   
   resp = JSON.parse body
   idTitleMap := resp.rows
@@ -204,15 +192,12 @@ construct.refreshIDTitleMap = (callback) ->
 # callback = (error) -> ...
 construct.refreshSubcategoryMap = (callback) ->
   (error, resp, body) <- request "#{couchdb}_design/blink/_view/subcategories"
-  if error
-    callback error
-    return;
+  return callback error if error
   if resp.statusCode !== 200
-    callback "Couldnt request subcategory map; status code: #{resp.statusCode}"
-    return;
+    return callback "Couldnt request subcategory map; status code: #{resp.statusCode}"
   
   resp = JSON.parse body
-  subcategoryMap := resp.rows[0].value
+  subcategoryMap := resp.rows.0.value
   
   callback!
 

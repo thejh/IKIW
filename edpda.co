@@ -73,7 +73,7 @@ class EDPDA
       read += alpha
       
       # stack peek
-      if stack.length == 0
+      if stack.length is 0
         return @_configuration "empty stack"
       stackSymbol = stack[stack.length-1]
       stack := stack.substr 0, stack.length-1
@@ -81,12 +81,12 @@ class EDPDA
       # stack peeks defined for this state
       stackSymbols = transitions[state]
       if not stackSymbols
-        return @_configuration "state not defined: #{state}"
+        return @_configuration "state not defined: #state"
       
       # transitions defined for stack peek and state
       trans = stackSymbols[stackSymbol]
-      if not trans or trans.length == 0
-        return @_configuration "transition not defined for stack symbol: #{stackSymbol}"
+      if not trans or trans.length is 0
+        return @_configuration "transition not defined for stack symbol: #stackSymbol"
       
       # test for first working transition
       transition = void
@@ -96,7 +96,7 @@ class EDPDA
           break
       
       if not transition # no transition found
-        return @_configuration "transition not defined for input symbol: #{alpha}"
+        return @_configuration "transition not defined for input symbol: #alpha"
       
       state := transition.to.state
       stack += transition.to.stackSymbols
@@ -109,15 +109,14 @@ class EDPDA
   # `fail` the reason for the fail
   # returns an object describing this edpda
   _configuration: (fail) ->
-    ret = {
+    ret =
       state: state
       stack: stack
-      isEmpty: not stack or stack.length == 0
+      isEmpty: not stack or stack.length is 0
       read: read
       output: out
-    }
     
-    if state then ret.isFinal = (layout.finalStates.indexOf state) != -1
+    if state then ret.isFinal = (layout.finalStates.indexOf state) is not -1
     if fail or not state
       # the automaton failed at some state
       # or is in no state

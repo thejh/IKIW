@@ -9,14 +9,12 @@
   compiler.setConfiguration(config);
   constructor.refreshIDTitleMap(function(error){
     if (error) {
-      console.log(error);
-      return;
+      return console.log(error);
     }
     return constructor.refreshSubcategoryMap(function(error){
       var PORT, HTDOCS, server;
       if (error) {
-        console.log(error);
-        return;
+        return console.log(error);
       }
       PORT = config.port;
       HTDOCS = config.htdocs;
@@ -37,8 +35,8 @@
           doc_id = config.home;
         }
         extra = {
-          'style': style,
-          'edit': edit
+          style: style,
+          edit: edit
         };
         if (request.method === 'POST') {
           request.setEncoding('utf8');

@@ -14,13 +14,11 @@
       if (error) {
         console.log(JSON.stringify(error));
         toResponse.writeHead(404);
-        toResponse.end();
-        return;
+        return toResponse.end();
       }
       if (response.statusCode !== 200) {
         toResponse.writeHead(response.statusCode);
-        toResponse.end();
-        return;
+        return toResponse.end();
       }
       document = JSON.parse(body);
       if (document.title) {
@@ -46,8 +44,8 @@
             content += constructArticleBody(document);
           }
           data = {
-            'title': document.title,
-            'content': content
+            title: document.title,
+            content: content
           };
           toResponse.writeHead(200, {
             'Content-Type': 'text/html'
@@ -63,8 +61,7 @@
         } else {
           if (Object.keys(document._attachments).length != 1) {
             toResponse.writeHead(404);
-            toResponse.end();
-            return;
+            return toResponse.end();
           }
           attachmentName = Object.keys(document._attachments)[0];
           url = couchdb + "" + doc_id + "/" + attachmentName;
@@ -80,15 +77,9 @@
               toResponse.writeHead(response.statusCode);
               return toResponse.end();
             } else {
-              if (document.type) {
-                toResponse.writeHead(200, {
-                  'Content-Type': document.type
-                });
-              } else {
-                toResponse.writeHead(200, {
-                  'Content-Type': document._attachments[attachmentName].type
-                });
-              }
+              toResponse.writeHead(200, {
+                'Content-Type': document.type || document._attachments[attachmentName].type
+              });
               return toResponse.end(body);
             }
           });
@@ -160,12 +151,10 @@
   construct.refreshIDTitleMap = function(callback){
     return request(couchdb + "_design/blink/_view/id_title_map", function(error, resp, body){
       if (error) {
-        callback(error);
-        return;
+        return callback(error);
       }
       if (resp.statusCode !== 200) {
-        callback("Couldnt request id_title_map; status code: " + resp.statusCode);
-        return;
+        return callback("Couldnt request id_title_map; status code: " + resp.statusCode);
       }
       resp = JSON.parse(body);
       idTitleMap = resp.rows;
@@ -175,12 +164,10 @@
   construct.refreshSubcategoryMap = function(callback){
     return request(couchdb + "_design/blink/_view/subcategories", function(error, resp, body){
       if (error) {
-        callback(error);
-        return;
+        return callback(error);
       }
       if (resp.statusCode !== 200) {
-        callback("Couldnt request subcategory map; status code: " + resp.statusCode);
-        return;
+        return callback("Couldnt request subcategory map; status code: " + resp.statusCode);
       }
       resp = JSON.parse(body);
       subcategoryMap = resp.rows[0].value;

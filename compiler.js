@@ -31,30 +31,29 @@
         if (error) {
           result.error = "Couldn't get Document.\nDescription:\n" + JSON.stringify(error);
           return onFinish(result);
-        } else if (resp.statusCode !== 200) {
+        }
+        if (resp.statusCode !== 200) {
           result.error = "Couldn't get Document.\nResponse status code from DB: " + resp.statusCode;
           return onFinish(result);
-        } else {
-          document = JSON.parse(body);
-          document.markup = newMarkup;
-          document.html = res.html;
-          return request({
-            method: 'PUT',
-            url: url,
-            multipart: [{
-              'content-type': 'application/json',
-              body: JSON.stringify(document)
-            }]
-          }, function(error, resp, body){
-            if (error) {
-              result.error = "Couldn't save Document.\nDescription:\n" + JSON.stringify(error);
-              return onFinish(result);
-            } else {
-              result.ok = "Document compiled.\nDocument saved: DB response status code: " + resp.statusCode;
-              return onFinish(result);
-            }
-          });
         }
+        document = JSON.parse(body);
+        document.markup = newMarkup;
+        document.html = res.html;
+        return request({
+          method: 'PUT',
+          url: url,
+          multipart: [{
+            'content-type': 'application/json',
+            body: JSON.stringify(document)
+          }]
+        }, function(error, resp, body){
+          if (error) {
+            result.error = "Couldn't save Document.\nDescription:\n" + JSON.stringify(error);
+            return onFinish(result);
+          }
+          result.ok = "Document compiled.\nDocument saved: DB response status code: " + resp.statusCode;
+          return onFinish(result);
+        });
       });
     } catch (error) {
       result.error = error;
@@ -98,34 +97,25 @@
         regex = /(\n\n+)|([^\\]```)|(^```)|([^\\]\$\$\$)|(^\$\$\$)|([^\\]>>>)|(^>>>)/;
         index = text.search(regex);
         match = text.match(regex);
-        if (index != -1) {
+        if (index !== -1) {
           if (match === null) {
             return "RegExp found and not found ?!\n" + text;
           }
           match = match[0];
           mayEscaped = true;
-          newType = null;
-          if (match[1] === '`') {
-            newType = 'code';
-          } else if (match[1] === '$') {
-            newType = 'math';
-          } else if (match[1] === '>') {
-            newType = 'quote';
-          } else {
-            mayEscaped = false;
-          }
-          if (index != 0) {
+          newType = (_fn());
+          if (index !== 0) {
             tree.push({
-              'type': 'par',
-              'input': text.substr(0, index + mayEscaped)
+              type: 'par',
+              input: text.substr(0, index + mayEscaped)
             });
           }
           text = text.substr(index + match.length);
           type = newType;
         } else {
           tree.push({
-            'type': 'par',
-            'input': text
+            type: 'par',
+            input: text
           });
           text = null;
         }
@@ -162,6 +152,19 @@
         type = null;
       }
     }
+    function _fn(){
+      switch (match[1]) {
+      case '`':
+        return 'code';
+      case '$':
+        return 'math';
+      case '>':
+        return 'quote';
+      default:
+        mayEscaped = false;
+        return null;
+      }
+    }
   };
   extractOneLiners = function(tree){
     var blockIndex, block, remainingText, line, match, _i, _ref, _len;
@@ -174,23 +177,7 @@
         match = line.match(/(^=+)|(^@)|(^\\)/);
         if (match) {
           match = match[0];
-          if (match[0] === '=') {
-            tree.splice(blockIndex, 0, {
-              'type': 'headline',
-              'depth': match.length,
-              'input': line.substr(match.length)
-            });
-          } else if (match[0] === '@') {
-            tree.splice(blockIndex, 0, {
-              'type': 'define',
-              'input': line
-            });
-          } else {
-            tree.splice(blockIndex, 0, {
-              'type': 'command',
-              'input': line.substr(1)
-            });
-          }
+          tree.splice(blockIndex, 0, (_fn()));
           blockIndex++;
         } else {
           remainingText += line + '\n';
@@ -198,6 +185,26 @@
       }
       block.input = remainingText;
       blockIndex++;
+    }
+    function _fn(){
+      switch (match[0]) {
+      case '=':
+        return {
+          type: 'headline',
+          depth: match.length,
+          input: line.substr(match.length)
+        };
+      case '@':
+        return {
+          type: 'define',
+          input: line
+        };
+      default:
+        return {
+          type: 'command',
+          input: line.substr(1)
+        };
+      }
     }
   };
   deleteEmptyBlocks = function(tree){
@@ -222,14 +229,11 @@
         if (error) {
           return error;
         }
-      } else {
-        match = block.input.match(/(^\s*#[^#])/);
-        if (match) {
-          block.type = 'orderedlist';
-          error = _parseList(block, block.input, blockIndex);
-          if (error) {
-            return error;
-          }
+      } else if (match = block.input.match(/(^\s*#[^#])/)) {
+        block.type = 'orderedlist';
+        error = _parseList(block, block.input, blockIndex);
+        if (error) {
+          return error;
         }
       }
     }
@@ -239,7 +243,7 @@
     stack = [block];
     block.items = [];
     lines = input.split(/\n/g);
-    if (lines.length == 0) {
+    if (lines.length === 0) {
       return;
     }
     item = {
@@ -269,7 +273,7 @@
         if (type === stack[stack.length - 2].type) {
           stack.pop();
           item = {
-            'text': line
+            text: line
           };
           _peek(stack).items.push(item);
           stack.push(item);
@@ -285,7 +289,7 @@
           peek.items = [];
         }
         item = {
-          'text': line
+          text: line
         };
         peek.items.push(item);
         stack.push(item);
@@ -321,7 +325,7 @@
     var stack, remainder, regex, index, match, elem, _results = [];
     stack = [block];
     block.elements = [{
-      'text': ''
+      text: ''
     }];
     remainder = block.input;
     while (remainder.length > 0) {
@@ -338,8 +342,8 @@
         }
         __closeAllElements(stack);
         _results.push(elem = {
-          'text': '',
-          'type': code
+          text: '',
+          type: code
         });
       }
     }
@@ -358,24 +362,24 @@
     var index, param, remaining, parsed;
     if (text.search(/^\[/ !== 0)) {
       return {
-        'parameter': {},
-        'text': text
+        parameter: {},
+        text: text
       };
     }
     text = text.substr(1, text.length);
     index = text.search(/(^\])|([^\\]\])/);
     if (index === 0) {
       return {
-        'parameter': {},
-        'text': text.substr(match.length, text.length)
+        parameter: {},
+        text: text.substr(match.length, text.length)
       };
     }
     param = text.substr(0, index + 1);
     remaining = text.substr(index + 2);
     parsed = JSON.parse(param);
     return {
-      'parameter': parsed,
-      'text': remaining
+      parameter: parsed,
+      text: remaining
     };
   };
   generateBlocks = function(tree){

@@ -3,25 +3,21 @@
 http = require \http
 path = require \path
 
-constructor = require './constructor'
-compiler = require './compiler'
+constructor = require \./constructor
+compiler = require \./compiler
 
 ################
 # configurations
-config = JSON.parse (require \fs .readFileSync 'config', 'utf8')
+config = JSON.parse (require \fs .readFileSync 'config', \utf8)
 constructor.setConfiguration config
 
 compiler.setConfiguration config
 
 (error) <- constructor.refreshIDTitleMap
-if error
-  console.log error
-  return;
+return console.log error if error
 
 (error) <- constructor.refreshSubcategoryMap
-if error
-  console.log error
-  return;
+return console.log error if error
 
 PORT = config.port
 HTDOCS = config.htdocs
@@ -30,7 +26,7 @@ HTDOCS = config.htdocs
 ## http-server
 server = http.createServer (request, response) ->
   console.log "rec: request type '#{request.method}' from #{request.connection.remoteAddress}: '#{request.url}'"
-  url = require 'url' .parse request.url, true
+  url = require \url .parse request.url, true
   
   edit = false
   if url.query and url.query.action and url.query.action is \edit then edit = true
@@ -42,15 +38,15 @@ server = http.createServer (request, response) ->
   if doc_id.length is 0 then doc_id = config.home
   
   extra =
-    \style : style
-    \edit : edit
+    style : style
+    edit : edit
   
-  if request.method is 'POST'
+  if request.method is \POST
     # handle POST
-    request.setEncoding 'utf8'
+    request.setEncoding \utf8
     post = ''
     
-    request.on 'data', (data) ->
+    request.on \data, (data) ->
       if post is not void and post.length+data.length <= config.maxPostSize
         post += data
       else
@@ -58,9 +54,9 @@ server = http.createServer (request, response) ->
         response.writeHead 414 # Request-URI Too Long
         response.end!
     
-    request.on 'end', ->
+    request.on \end, ->
       if post is void then return # 414
-      post := require 'querystring' .parse post
+      post := require \querystring .parse post
       if post.input
         (compilerResult) <- compiler doc_id, post.input
         extra <<< compilerResult
