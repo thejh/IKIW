@@ -1,0 +1,144 @@
+# EXTENDED DETERMINISTIC PUSH DOWN AUTOMATON
+# It supports a separated output stack every transition can write to.
+# This implementation does no backtracking, so runs with not deterministic
+# configurations may return incomplete results.
+# Regular expressions are used as alphabet symbols in transitions,
+# so it matches for character groups, but this may result in non-deterministic
+# configurations.The transitions possible for a certain state-stack-
+# configuration are tested in the order they were defined in the
+# layout.
+# Every transitions defines a string that is appended to the output stack
+# when the transition is used. You can get the input symbol for the transition
+# with '{alpha}' into your string.
+# The alphabet this automaton is working on exists of all characters
+
+class EDPDA
+  layout = null
+  transitions = null
+  
+  (description) ->
+    layout := description
+  
+    # Sorts transitions into a 2d associative array.
+    # This should work with non-deterministic automatons too.
+    transitions := {}
+    
+    for trans of layout.transitions # for every transition
+      # stackSymbols contains the object saved in the
+      # first dimension of transitions.
+      # The stack symbols defined for the from-state of the transition. /
+      # The stack symbols defined for the current state-configuration.
+      stackSymbols = transitions[trans.from.state] # non deterministic !
+      
+      if not stackSymbols
+        stackSymbols = {}
+        transitions[trans.from.state] = stackSymbols
+      
+      # The transition (with the regex) defined for the current state-stack-configuration
+      regexes = stackSymbols[trans.from.stackSymbol] # non deterministic !
+      if not regexes
+        regexes = []
+        stackSymbols[trans.from.stackSymbol] = regexes
+      
+      regexes.push trans
+    #console.log transitions # debug output
+  
+  # Returns an error message if this pda is non-deterministic.
+  # In that the result of work() may be wrong, because it does no backtracking.
+  validate: ->
+    # TODO
+  
+  # Teturns true when every field of the 3d array transitions
+  # contains AT LEAST one transition.
+  # This func does not check if the automaton is deterministic.
+  fallible: ->
+    # TODO
+  
+  state = null
+  stack = null
+  read = null
+  out = null
+  
+  # the result may be wrong if the pda is non-deterministic!
+  work: (input) ->
+    out := ''
+    state := layout.initialState
+    stack := layout.initialStackSymbol
+    read := ''
+    
+    @print @_configuration! # debug output
+    
+    for alpha of input
+      # symbol read
+      read += alpha
+      
+      # stack peek
+      if stack.length == 0
+        return @_configuration "empty stack"
+      stackSymbol = stack[stack.length-1]
+      stack := stack.substr 0, stack.length-1
+      
+      # stack peeks defined for this state
+      stackSymbols = transitions[state]
+      if not stackSymbols
+        return @_configuration "state not defined: #{state}"
+      
+      # transitions defined for stack peek and state
+      trans = stackSymbols[stackSymbol]
+      if not trans or trans.length == 0
+        return @_configuration "transition not defined for stack symbol: #{stackSymbol}"
+      
+      # test for first working transition
+      transition = void
+      for t of trans
+        if alpha.match t.inputSymbol
+          transition = t
+          break
+      
+      if not transition # no transition found
+        return @_configuration "transition not defined for input symbol: #{alpha}"
+      
+      state := transition.to.state
+      stack += transition.to.stackSymbols
+      out += transition.output.replace /\{alpha\}/g, alpha
+      
+      @print @_configuration!, alpha # debug output
+    
+    return @_configuration!
+  
+  # `fail` the reason for the fail
+  # returns an object describing this edpda
+  _configuration: (fail) ->
+    ret = {
+      state: state
+      stack: stack
+      isEmpty: not stack or stack.length == 0
+      read: read
+      output: out
+    }
+    
+    if state then ret.isFinal = (layout.finalStates.indexOf state) != -1
+    if fail or not state
+      # the automaton failed at some state
+      # or is in no state
+      ret.failed = true
+      ret.reason = fail
+    
+    return ret
+  
+  # Prints the configuration to console.
+  # Indents configuration with 2 spaces when alpha is given.
+  print: (configuration, alpha) ->
+    if not configuration
+      configuration = @_configuration!
+    
+    indent = ''
+    if alpha
+      console.log alpha
+      indent = ''
+    
+    if configuration.failed then console.log "#{indent}FAILED, reason: #{configuration.reason}"
+    console.log "#{indent}state: #{configuration.state} \tfinal: #{configuration.isFinal}"
+    console.log "#{indent}stack#{if configuration.stack.length == 0 then '(empty)' else ''}: #{configuration.stack} \tfinal: #{configuration.isEmpty}"
+    console.log "#{indent}output#{if not configuration.output || configuration.output.length == 0 then '(empty)' else ''}: #{configuration.output}"
+
